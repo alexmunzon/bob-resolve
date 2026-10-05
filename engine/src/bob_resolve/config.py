@@ -122,6 +122,13 @@ RUN_LLM_MODE: Final[Literal["off"]] = "off"
 # Rule id on a merge log line for a pair a human decided "same person" (review apply).
 REVIEW_RULE_ID: Final[str] = "REVIEW-DECISION"
 
+# Release 0.1.0
+# Characters of an MBI left visible wherever it is masked (review queue, public demo).
+MBI_VISIBLE_CHARS: Final[int] = 4
+# A run written under a folder with one of these names is public (the dashboard serves it), so
+# the run refuses to write there unless the MBI is masked (--mask-mbi).
+PUBLIC_FOLDER_NAMES: Final[frozenset[str]] = frozenset({"public"})
+
 # Review 2
 # False-merge holes closed in review 2 (docs/review-2-score-notes.md). Orchestrator decisions
 # F1 to F4 and F8; SPEC decision 2: a false merge is worse than a missed match.

@@ -2,6 +2,8 @@
 SPEC decision 2 target on all four side and shared-ids combinations. Jev and LLM are off."""
 
 import json
+import shlex
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -9,8 +11,14 @@ import polars as pl
 import pytest
 from typer.testing import CliRunner
 
+from bob_resolve.block import candidate_pairs
 from bob_resolve.cli import app
+from bob_resolve.cluster import components
 from bob_resolve.golden import GOLDEN_FIELDS
+from bob_resolve.golden.data import load_people
+from bob_resolve.normalize.record import normalize_record
+from bob_resolve.score import score_candidates
+from bob_resolve.truth import build_snapshot_answer_key
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
 NOW = "2026-10-01T12:00:00+00:00"
@@ -45,9 +53,10 @@ def combo(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFacto
     return side, ids, load(run_cli(tmp_path_factory.mktemp("runs"), side, ids, "r"))
 
 
-@pytest.fixture(scope="module")
-def hard(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
-    return load(run_cli(tmp_path_factory.mktemp("runs"), "hard-cases", True, "hc"))
+@pytest.fixture(scope="module", params=[True, False], ids=["hard-ids-True", "hard-ids-False"])
+def hard(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Any:
+    run = load(run_cli(tmp_path_factory.mktemp("runs"), "hard-cases", request.param, "hc"))
+    return run | {"shared_ids": request.param}
 
 
 def person_of(people: pl.DataFrame) -> dict[str, str]:
@@ -82,9 +91,22 @@ def test_decision_2_targets_on_every_combination(combo: Any) -> None:
 
 
 def test_example_1_happy_path_snapshot(combo: Any) -> None:
+    """People count from the answer key alone: join every true pair except the true pairs the
+    queue still holds as gray pairs (a human has not decided them yet). The resulting groups
+    must equal the people in the run, one for one."""
     side, ids, run = combo
     people = run["people"]
-    assert 2000 <= people.height <= 2000 + run["scorecard"]["people_left_split"]
+    enr = FIXTURES / "agency-a-derived/enrollment_clean.csv" if side == "derived" else None
+    key = build_snapshot_answer_key(FIXTURES / "agency-a-snapshot", enr, as_of=date(2026, 10, 1))
+    waiting = {(i["pairs"][0]["a"], i["pairs"][0]["b"]) for i in run["queue"]
+               if i["kind"] == "gray_pair"}  # fmt: skip
+    in_run = {r for ids_ in people["record_ids"] for r in ids_.split(";")}
+    edges = [p for p in key.pairs if p not in waiting and set(p) <= in_run]
+    expected = components(sorted(in_run), edges)
+    assert len(key.clusters) == 2000 and people.height == len(expected)
+    assert {tuple(sorted(c)) for c in expected} == {
+        tuple(sorted(x.split(";"))) for x in people["record_ids"]
+    }
     assert run["scorecard"]["people"] == people.height
     for f in GOLDEN_FIELDS:
         has = people.filter(pl.col(f).is_not_null())
@@ -129,14 +151,32 @@ def test_example_4_twins_stay_two_people_in_one_household(hard: dict[str, Any]) 
     assert not merged(hard, "enrollment:1", "enrollment:2")
 
 
+def rules_decision(a: str, b: str, shared_ids: bool) -> str:
+    """The rules arm's own decision on one hard-case pair, recomputed outside the run."""
+    hc = FIXTURES / "hard-cases"
+    recs, _ = load_people(hc / "clients.csv", hc / "enrollment_export.csv", None,
+                          date(2026, 10, 1))  # fmt: skip
+    norm = [normalize_record(r) for r in recs]
+    for p in score_candidates(norm, candidate_pairs(norm, shared_ids), shared_ids):
+        if {p.a, p.b} == {a, b}:
+            return str(p.decision)
+    return "NOT_A_CANDIDATE"
+
+
 def test_example_5_jr_and_sr(hard: dict[str, Any]) -> None:
+    """Jr and Sr stay apart. Each pair is either queued suggesting "different people", or
+    absent from the queue because the scorer rejected it outright (score below the auto-reject
+    line, or never a candidate): the queue holds only gray pairs and conflicts."""
     p = person_of(hard["people"])
     assert p["crm:HC-003"] != p["crm:HC-004"] and p["crm:HC-003"] != p["enrollment:4"]
+    logged = {(e["a"], e["b"]) for e in hard["log"]}  # any log line means it was matched
     for a, b in (("crm:HC-003", "crm:HC-004"), ("crm:HC-003", "enrollment:4")):
-        assert not merged(hard, a, b)
-        for item in hard["queue"]:
-            if {a, b} <= {r["record_id"] for r in item["records"]}:
-                assert item["suggestion"] == "different_people"
+        assert not merged(hard, a, b) and (a, b) not in logged
+        items = [i for i in hard["queue"] if {a, b} <= {r["record_id"] for r in i["records"]}]
+        if items:
+            assert all(i["suggestion"] == "different_people" for i in items)
+        else:  # absent for a stated reason: the scorer rejected it or never paired it
+            assert rules_decision(a, b, hard["shared_ids"]) in ("AUTO_REJECT", "NOT_A_CANDIDATE")
 
 
 def test_example_6_shared_contact_details(hard: dict[str, Any]) -> None:
@@ -149,6 +189,12 @@ def test_example_6_shared_contact_details(hard: dict[str, Any]) -> None:
 def test_example_7_identity_conflict_goes_to_review_high(hard: dict[str, Any]) -> None:
     p = person_of(hard["people"])
     assert p["crm:HC-007"] != p["crm:HC-008"]
+    assert not merged(hard, "crm:HC-007", "crm:HC-008")
+    if not hard["shared_ids"]:
+        # No shared ids withholds the MBI, so the shared-MBI conflict (GR-002) cannot be seen:
+        # the pair stays apart on its far birth dates and is not queued as a conflict.
+        assert not any(i["reason"] == "IDENTITY_CONFLICT" for i in hard["queue"])
+        return
     item = next(
         i
         for i in hard["queue"]
@@ -185,3 +231,18 @@ def test_examples_9_and_10_guard_rails_reach_the_queue(hard: dict[str, Any]) -> 
         assert p[a] != p[b] and not merged(hard, a, b)
         item = next(i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == {a, b})
         assert rule in item["rule_ids"] and item["suggestion"] == suggestion
+
+
+def test_committed_demo_regenerates_byte_identical(tmp_path: Path) -> None:
+    """`npm run demo` into a temp folder must equal the committed public demo, byte for byte."""
+    script = json.loads((FIXTURES.parent / "package.json").read_text())["scripts"]["demo"]
+    args = shlex.split(script.split("bob-resolve ", 1)[1])
+    i = args.index("--out")
+    args[i + 1] = str(tmp_path)
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    committed = FIXTURES.parent / "dashboard/public/demo-run"
+    fresh = tmp_path / "demo-run"
+    assert sorted(p.name for p in fresh.iterdir()) == sorted(p.name for p in committed.iterdir())
+    for p in sorted(committed.iterdir()):
+        assert (fresh / p.name).read_bytes() == p.read_bytes(), p.name
