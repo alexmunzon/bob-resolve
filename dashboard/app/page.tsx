@@ -1,7 +1,8 @@
-export default function Home() {
-  return (
-    <main className="mx-auto w-full max-w-[1120px] px-4 py-6 sm:px-10">
-      <h1 className="text-2xl font-semibold">bob-resolve: nothing to show yet</h1>
-    </main>
-  );
+import { Overview } from "@/components/overview";
+import { overview } from "@/lib/overview";
+import { DEMO_RUN_DIR, loadRunDir } from "@/lib/run-dir";
+
+// The committed demo run is read at build time from public/demo-run. No network calls.
+export default async function OverviewPage() {
+  return <Overview data={overview(await loadRunDir(DEMO_RUN_DIR))} />;
 }
