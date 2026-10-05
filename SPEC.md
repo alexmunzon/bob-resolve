@@ -89,8 +89,8 @@ moved households, shared household phones and emails, a child on a parent's poli
 3. **Scoring (rules arm):** a comparison vector per pair (Jaro-Winkler on names with nickname awareness, DOB exact or
    variant, MBI, address, phone, email, suffix) and hand-tuned weights. Two cutoffs, both in `config.py`: at or above
    the high line, auto-match; below the low line, auto-reject. **Guard rails that override the score:** different
-   generational suffix (Jr vs Sr) is never auto-merged; a shared MBI with a DOB more than one edit apart is never
-   auto-merged (a pasted MBI is a data-entry error, not identity proof); shared phone or email alone never merges.
+   generational suffix (Jr vs Sr) is never auto-merged; a shared MBI with a DOB that is neither within one edit
+   nor a month-day swap is never auto-merged (a pasted MBI is a data-entry error, not identity proof); shared phone or email alone never merges.
 4. **Jev gate on the gray zone** (after commons exists): `noul` "Is record B the same person as record A?" and `choice`
    household role (self, spouse, dependent, unrelated). Payload minimized to the compared fields only, no notes.
    Thresholds in `config.py`; Jev never overrides a guard rail. `off` mode sends every gray-zone pair to review.
