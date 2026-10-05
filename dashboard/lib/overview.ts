@@ -36,8 +36,12 @@ function bySource(run: Run): Row[] {
     .map(([source, n]) => ({ label: SOURCE_NAMES[source] ?? words(source), value: count(n) }));
 }
 
-function usageTier(name: string, usage: Usage, merges: number, offReason: string): Row {
+/** The LLM tier only ever replays saved explanations offline; it never merges or calls a model. */
+export const LLM_REPLAY_NOTE = "Saved explanations replayed offline. Recorded advisory only, no live calls.";
+
+export function usageTier(name: string, usage: Usage, merges: number, offReason: string, replayNote?: string): Row {
   const on = usage.mode !== "off";
+  if (replayNote && usage.mode === "replay") return { label: name, value: "Advisory only", note: replayNote };
   return {
     label: name,
     value: on ? count(merges) : "Off",
@@ -122,7 +126,7 @@ export function overview(run: Run) {
     tiers: [
       { label: "Rules", value: count(mergeLog.merges.rules ?? 0), note: "Auto-merged only when very sure." },
       usageTier("Jev", manifest.jev, mergeLog.merges.jev ?? 0, OFF_REASONS.jev),
-      usageTier("LLM", manifest.llm, mergeLog.merges.llm ?? 0, OFF_REASONS.llm),
+      usageTier("LLM", manifest.llm, mergeLog.merges.llm ?? 0, OFF_REASONS.llm, LLM_REPLAY_NOTE),
       {
         label: "Human review",
         value: count(mergeLog.merges.review ?? 0),
@@ -145,7 +149,12 @@ export function overview(run: Run) {
     usage: (["jev", "llm"] as const).map((key) => ({
       label: key === "jev" ? "Jev" : "LLM",
       value: `${formatUsd(manifest[key].cost_usd)}, ${plural(manifest[key].calls, "call")}`,
-      note: manifest[key].mode === "off" ? "Off" : words(manifest[key].mode),
+      note:
+        manifest[key].mode === "off"
+          ? "Off"
+          : key === "llm" && manifest[key].mode === "replay"
+            ? LLM_REPLAY_NOTE
+            : words(manifest[key].mode),
     })),
     runTime: runTime(manifest.timings_ms),
     runId: manifest.run_id,

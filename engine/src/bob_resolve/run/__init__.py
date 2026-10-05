@@ -28,7 +28,6 @@ from bob_resolve.config import (
     MAX_BLOCK_SIZE,
     PUBLIC_FOLDER_NAMES,
     RUN_JEV_MODE,
-    RUN_LLM_MODE,
     SCORE_HIGH,
     SCORE_LOW,
     TARGET_AUTO_MERGE_PRECISION,
@@ -37,6 +36,8 @@ from bob_resolve.config import (
 )
 from bob_resolve.golden import GOLDEN_FIELDS, Resolution, resolve
 from bob_resolve.golden.data import load_people
+from bob_resolve.llm.replay import LlmMode
+from bob_resolve.llm.run import evaluate_rationales
 from bob_resolve.load import PersonRecord, read_enrollment
 from bob_resolve.load.commons import TWO_AGENCY_LABEL, ensure_multi_a_b
 from bob_resolve.mergelog import append_entries
@@ -81,6 +82,9 @@ class RunOptions:
     overwrite: bool = False
     parquet: bool = True
     mask_mbi: bool = False  # mask the MBI in people.csv to its last 4 (required under public/)
+    # Saved explanations replayed offline. Off by default; never changes a match decision.
+    llm_mode: LlmMode = "off"
+    llm_cassettes: Path = Path("cassettes/llm")
 
 
 @dataclass(frozen=True)
@@ -263,7 +267,7 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
                 "auto_reject": c["scores"].auto_reject,
             },  # fmt: skip
             "jev": {"mode": RUN_JEV_MODE, "calls": 0},
-            "llm": {"mode": RUN_LLM_MODE, "calls": 0},
+            "llm": {"mode": o.llm_mode, "calls": 0},
         },
         "guard_rail_hits": c["scores"].guard_rail_hits,
         # suggested_same_person comes from the engine's scores before any review, so a pair a
@@ -394,6 +398,15 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
         if item.item_id not in skip or item.kind in {"identity_conflict", "cluster_conflict"}
     ]
     lap("review_queue")
+    # Advisory only: reads saved explanations, never feeds scoring, merges, or the queue.
+    rationales, llm_usage = evaluate_rationales(
+        scored,
+        by_id,
+        owners,
+        mode=o.llm_mode,
+        cassette_dir=o.llm_cassettes,
+        shared_ids=o.shared_ids,
+    )
     multi: MultiTruth | None = None
     if o.side == "hard-cases":
         key = load_hard_case_key(files["answer_key"])
@@ -406,6 +419,8 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
         key = build_snapshot_answer_key(snap, enr, as_of=o.as_of)
     crm_hh = {r.record_id: r.household_id for r in records if r.household_id}
     c: dict[str, Any] = {
+        "llm_assessments": rationales,
+        "llm_usage": llm_usage,
         "files": files,
         "res": res,
         "queue": queue,
@@ -469,6 +484,11 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
             "".join(x.model_dump_json() + "\n" for x in parent.decisions), encoding="utf-8"
         )
     _json(c["scorecard"], d / "scorecard.json")
+    if o.llm_mode != "off":
+        (d / "llm_assessments.jsonl").write_text(
+            "".join(json.dumps(r, sort_keys=True) + "\n" for r in c["llm_assessments"]),
+            encoding="utf-8",
+        )
     off = {"mode": "off", "calls": 0, "cost_usd": 0.0}
     human = {(e.a, e.b) for e in res.log if e.action == "merge" and e.tier == "review"}
     new = parent.new if parent else frozenset()
@@ -499,9 +519,9 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
                 "gray_same_person_min": GRAY_SAME_PERSON_MIN,
                 "max_block_size": MAX_BLOCK_SIZE,
             },  # fmt: skip
-            "modes": {"rules": "on", "jev": RUN_JEV_MODE, "llm": RUN_LLM_MODE},
+            "modes": {"rules": "on", "jev": RUN_JEV_MODE, "llm": o.llm_mode},
             "jev": off,
-            "llm": off,
+            "llm": c["llm_usage"] if o.llm_mode != "off" else off,
             "timings_ms": c["timings"],
             "outputs": {p.name: sha256(p) for p in sorted(d.iterdir())},
         },
@@ -522,6 +542,11 @@ def execute(o: RunOptions, parent: Parent | None = None) -> Path:
         raise RunRefused("run output overlaps input fixtures; choose a separate output folder")
     if not o.mask_mbi and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
         raise RunRefused(f"{o.out} is a public folder; pass --mask-mbi so no full MBI lands there.")
+    if o.llm_mode != "off" and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
+        raise RunRefused(
+            f"{o.out} is a public folder; saved explanations are never written there. "
+            "Use --llm-mode off for a public run."
+        )
     if final.exists() and not o.overwrite:
         raise RunRefused(
             f"{final} already exists. Runs are immutable; pass --overwrite to redo it."
@@ -591,9 +616,12 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(),
                     active_labels, kept_before | new, new)  # fmt: skip
     side: RunSide = m["args"]["enrollment"]
+    # Carry the old run's saved-explanation mode; anything but replay is treated as off.
+    llm_mode: LlmMode = "replay" if m.get("modes", {}).get("llm") == "replay" else "off"
     opts = RunOptions(o.fixtures, side, m["args"]["shared_ids"], o.out, o.run_id,
                       date.fromisoformat(m["as_of"]), o.now, o.frozen_clock, o.overwrite,
-                      o.parquet, m["args"].get("mask_mbi", False))  # fmt: skip
+                      o.parquet, m["args"].get("mask_mbi", False),
+                      llm_mode, o.llm_cassettes)  # fmt: skip
     folder = execute(opts, parent)
     nm = json.loads((folder / "manifest.json").read_text())
     kept, cut = nm["decisions_applied"], len(nm["decisions_cut"])

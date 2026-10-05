@@ -17,7 +17,9 @@ not a service for processing real insurance records.
 
 v0.1.0: a working rules engine and read-only dashboard, measured on synthetic data only.
 Overview, Clusters, Review queue, and Benchmark render the committed demo run. No real client
-data has ever been used. Jev and the LLM arm are not built; no model is called.
+data has ever been used. Jev is not built. An optional step can replay saved explanations offline
+(`--llm-mode replay`), but it is off in this demo, no real saved explanations exist yet, and no
+model is ever called.
 
 Start with the walkthrough below. [SPEC.md](SPEC.md) defines the intended behavior; the
 [documentation index](docs/README.md) separates current guides from historical implementation notes
@@ -96,8 +98,8 @@ line. The old run is never edited. Local run output is not published by these co
 4. **Review as a new run:** the CLI applies an explicit decision file and writes a separate run,
    carrying prior decisions and appending to the log. The dashboard does not submit decisions.
 5. **Present committed evidence:** the Next.js dashboard reads the public demo artifacts. The
-   published site has no client-file upload or editable review workflow. Jev and the LLM arm are
-   not implemented; this run calls no model.
+   published site has no client-file upload or editable review workflow. Jev is not implemented and
+   the saved-explanation replay step is off; this run calls no model.
 
 Repository map: `engine/` contains matching and CLI code; `dashboard/` contains the read-only
 presentation; `fixtures/` contains synthetic inputs and provenance; `runs/` holds ignored local
@@ -175,8 +177,9 @@ docs/pr-10b-notes.md.
 
 ## Known limits
 
-- Jev (the second matching opinion) and the LLM arm are not built. Every gray pair goes to a
-  human, and no model is called.
+- Jev (the second matching opinion) is not built. The LLM step only replays saved explanations
+  offline, is off by default, and never changes a decision. No real saved explanations exist yet.
+  Every gray pair goes to a human, and no model is called.
 - Measured on synthetic data only. The hard cases score recall 0.89 with shared ids on: Nina
   Dorsey's two records stay split until a human decides.
 - With shared ids withheld, the shared-MBI conflict check (GR-002) cannot fire.

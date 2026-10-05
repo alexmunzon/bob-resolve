@@ -1,12 +1,21 @@
-"""Read validated rationale cassettes without network access or merge authority."""
+"""Read saved explanations from disk, offline, without network access or merge authority."""
 
 import hashlib
 import json
 import math
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from bob_resolve.score.rules import GUARD_RAILS
+
+# off (default) or replay. There is deliberately no live or record mode.
+LlmMode = Literal["off", "replay"]
+
+# A saved explanation file larger than this is refused as invalid.
+MAX_CASSETTE_BYTES = 8 * 1024
 
 # Only structured fields that the rules compare may enter a request.
 COMPARED_FIELDS = frozenset(
@@ -56,7 +65,7 @@ def request_key(
             raise ValueError("Each compared field needs exactly two values")
         if any(value is not None and not isinstance(value, str) for value in values):
             raise ValueError("Compared values must be strings or null")
-    if any(rail not in {f"GR-{i:03}" for i in range(1, 8)} for rail in guardrail_ids):
+    if any(rail not in GUARD_RAILS for rail in guardrail_ids):
         raise ValueError("Unknown guardrail id")
     payload = {
         "schema": "bob-llm-rationale-v1",
@@ -104,10 +113,16 @@ def review_pair(
     if not gray_zone or not jev_uncertain:
         return Advisory("ineligible", model, key, rails)
     path = cassette_dir / f"{key}.json"
-    if not path.exists():
+    if not path.is_symlink() and not path.exists():
         return Advisory("pending", model, key, rails)
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("A saved explanation must be a regular file, not a link or folder")
+        with path.open("rb") as handle:
+            raw = handle.read(MAX_CASSETTE_BYTES + 1)
+        if len(raw) > MAX_CASSETTE_BYTES:
+            raise ValueError("Saved explanation file is too large")
+        payload = json.loads(raw.decode("utf-8"))
         expected = {"request_key", "model", "rationale", "provenance", "cost_usd"}
         if not isinstance(payload, dict) or set(payload) != expected:
             raise ValueError("Invalid rationale cassette schema")
@@ -118,16 +133,24 @@ def review_pair(
             payload["provenance"],
             payload["cost_usd"],
         )
-        if not isinstance(rationale, str) or not rationale.strip() or len(rationale) > 2000:
+        if not isinstance(rationale, str) or not plain_text(rationale) or len(rationale) > 2000:
             raise ValueError("Invalid rationale")
-        if not isinstance(provenance, str) or not provenance.strip() or len(provenance) > 500:
+        if not isinstance(provenance, str) or not plain_text(provenance) or len(provenance) > 500:
             raise ValueError("Invalid provenance")
         if isinstance(cost, bool) or not isinstance(cost, (int, float)):
             raise ValueError("Invalid recorded cost")
         if not math.isfinite(cost) or cost < 0:
             raise ValueError("Invalid recorded cost")
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, RecursionError, json.JSONDecodeError) as exc:
         raise ValueError("Unreadable rationale cassette") from exc
     return Advisory(
-        "replayed", model, key, rails, rationale.strip(), provenance.strip(), float(cost)
+        "replayed", model, key, rails, plain_text(rationale), plain_text(provenance), float(cost)
     )
+
+
+def plain_text(value: str) -> str:
+    """Plain text only: control, format and bidi characters become spaces, then trimmed."""
+    cleaned = "".join(
+        " " if unicodedata.category(ch) in {"Cc", "Cf", "Zl", "Zp"} else ch for ch in value
+    )
+    return " ".join(cleaned.split())

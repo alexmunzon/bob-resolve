@@ -1,27 +1,21 @@
-# PR 12: Optional rationale replay
+# PR 12: Saved explanations replayed offline
 
-`bob_resolve.llm.replay.review_pair` provides a completed, independently testable rationale
-reader. It defaults off. Replay is the only enabled mode; live and record are rejected and
-no API client or credential is loaded. Its separate budget argument defaults to zero.
+`bob_resolve.llm.replay.review_pair` reads one saved explanation for one pair from a local
+folder. It defaults off. Replay is the only other mode; live and record are rejected, and the
+`llm` package imports no model client, no HTTP library and reads no environment variables. A
+test checks those imports. No real saved explanations exist yet: every file used in tests is a
+synthetic stand-in labeled "synthetic-test-stub-not-model-output".
 
-Callers supply structured compared-field pairs, gray-zone eligibility, Jev uncertainty,
-existing guardrail IDs, and whether coverage or commission would move. Sonnet is selected
-for ordinary uncertain pairs; Opus is selected only for high-stakes pairs. Unknown fields
-including notes are rejected. With shared_ids=False, MBI and policy keys are omitted from the hashed request.
+Requests carry only the structured fields the rules compare (names, DOB, street, ZIP, phone,
+email, and MBI and policy keys only when shared ids are on). Notes and lineage are never
+included. The file name is a SHA-256 of that request, the guard rails and the model tier. The
+hash stays inside the run: `llm_assessments.jsonl` does not record it.
 
-Cassettes belong in a caller-selected directory and are named `<request_key>.json`. The
-SHA-256 key includes the sorted compared fields, guardrails, schema version and model tier.
-Each cassette contains exactly request_key, model, rationale, provenance and cost_usd.
-Rationale and provenance must be nonempty bounded strings; recorded cost must be finite
-and nonnegative. Model/key mismatches and invalid cassettes raise ValueError. Replay cost
-is always zero; recorded cost is separate evidence. Missing cassettes return pending.
+A saved file must be a regular file (not a link or folder), at most 8 KB, UTF-8 JSON with
+exactly request_key, model, rationale, provenance and cost_usd. Anything else is invalid.
+Explanation text is reduced to plain text: control, format and bidi characters are removed.
+Any guard rail the engine knows (GR-001 to GR-008) is accepted.
 
-Every response requires human review. There is no decision or merge field and guardrails
-are preserved. This module is not wired into the run CLI yet: PR 11 owns that integration.
-No recorded model answers or benchmark accuracy are claimed. Until an authorized recording
-exists, the optional LLM benchmark row remains pending.
-
-Validation: engine lint, format and mypy pass; 320 pytest pass with 2 skips and 5 expected
-failures. Dashboard lint, generated type checks and 28 Vitest tests pass. Default
-Turbopack production build is blocked by this sandbox's worker port binding restriction;
-the equivalent webpack production build is used to validate the dashboard artifact.
+Every row requires human review. There is no decision or merge field, and the run computes
+scoring, merges, the review queue and guard rails before the explanation step and never reads
+its output. See pr-12-cli-notes.md for the run integration.
