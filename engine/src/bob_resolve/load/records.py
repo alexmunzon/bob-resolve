@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 Source = Literal["crm", "enrollment"]
-DobIssue = Literal["missing", "invalid", "future"]
+DobIssue = Literal["missing", "invalid", "future", "placeholder", "implausible"]
 
 
 class Lineage(BaseModel):

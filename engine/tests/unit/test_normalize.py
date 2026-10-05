@@ -26,7 +26,7 @@ from bob_resolve.normalize.names import (
 from bob_resolve.normalize.phone import normalize_phone
 from bob_resolve.normalize.record import NormalizedRecord, normalize_record
 
-AS_OF = date(2026, 10, 5)
+AS_OF = date(2026, 10, 1)
 ALL = [normalize_name, normalize_address, normalize_phone, normalize_email, zip5]
 
 

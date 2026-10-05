@@ -1,15 +1,18 @@
 """Candidate pairs from blocking keys, built with polars joins (no Python pair loops).
 
 Any shared key value puts a pair in the candidate set. Every pair is (a, b) with a < b as
-strings, the same order as the answer key, and lists the keys that produced it.
+strings, the same order as the answer key, and lists the keys that produced it. A key value
+shared by more than MAX_BLOCK_SIZE records is dropped from that key and reported (Review 1).
 """
 
+import hashlib
 from collections.abc import Sequence
 
 import polars as pl
 from pydantic import BaseModel, ConfigDict
 
-from bob_resolve.config import SHARED_IDS_DEFAULT
+from bob_resolve.config import MAX_BLOCK_SIZE, SHARED_IDS_DEFAULT
+from bob_resolve.normalize.names import canonical_names
 from bob_resolve.normalize.record import NormalizedRecord
 from bob_resolve.truth import AnswerKey
 
@@ -31,29 +34,82 @@ KEY_EXPRESSIONS: dict[str, pl.Expr] = {
     # Same surname sound and birth month and day: catches a wrong or mistyped birth year.
     "surname_birth_month_day": pl.concat_str(_SURNAME, _DOB.str.slice(4, 4), separator="|"),
 }
-ALL_KEYS: tuple[str, ...] = tuple(KEY_EXPRESSIONS)
+# Every formal first name the given name may stand for, plus the full DOB: pairs people whose
+# surname changed (maiden, married, hyphenated). Built from a list column, see _long_values.
+FIRST_NAME_DOB = "first_name_dob"
+# FROZEN after Review 1. Phase 2 measures exactly this blocker; tests/unit/test_review_1.py pins
+# the list. Adding or removing a key needs a new review and new recall numbers in the notes.
+ALL_KEYS: tuple[str, ...] = (*KEY_EXPRESSIONS, FIRST_NAME_DOB)
 SHARED_ID_KEYS: frozenset[str] = frozenset({"mbi"})
 _FIELDS = ["record_id", "last_name", "last_name_key", "dob_key", "mbi", "phone", "email", "zip3"]
+_FIELDS += ["first_name"]
+
+
+class DroppedBlock(BaseModel):
+    """A key value too common to block on. The value is masked: only a hash prefix is shown."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    value_masked: str
+    size: int
 
 
 def active_keys(shared_ids: bool) -> tuple[str, ...]:
     return tuple(k for k in ALL_KEYS if shared_ids or k not in SHARED_ID_KEYS)
 
 
-def candidate_pairs(
-    records: Sequence[NormalizedRecord], shared_ids: bool = SHARED_IDS_DEFAULT
-) -> pl.DataFrame:
-    """Columns a, b, keys (sorted list of key names). Null key values never match."""
-    keys = active_keys(shared_ids)
+def _long_values(records: Sequence[NormalizedRecord], shared_ids: bool) -> pl.DataFrame:
+    """One row per (record_id, key, value), nulls dropped."""
+    keys = [k for k in active_keys(shared_ids) if k != FIRST_NAME_DOB]
     base = pl.DataFrame(
         [r.model_dump(include=set(_FIELDS)) for r in records],
         schema={f: pl.String for f in _FIELDS},
     )
-    long = (
-        base.select("record_id", *(KEY_EXPRESSIONS[k].alias(k) for k in keys))
-        .unpivot(index="record_id", variable_name="key", value_name="value")
-        .drop_nulls("value")
+    names = pl.Series(
+        "first_names", [sorted(canonical_names(r.first_name)) for r in records], pl.List(pl.String)
     )
+    first_dob = (
+        base.with_columns(names)
+        .explode("first_names", empty_as_null=True)
+        .select(
+            "record_id",
+            pl.lit(FIRST_NAME_DOB).alias("key"),
+            pl.concat_str(pl.col("first_names"), _DOB, separator="|").alias("value"),
+        )
+    )
+    scalar = base.select("record_id", *(KEY_EXPRESSIONS[k].alias(k) for k in keys)).unpivot(
+        index="record_id", variable_name="key", value_name="value"
+    )
+    return pl.concat([scalar, first_dob]).drop_nulls("value").unique()
+
+
+def _block_sizes(long: pl.DataFrame, max_block_size: int) -> pl.DataFrame:
+    return long.group_by("key", "value").len("size").filter(pl.col("size") > max_block_size)
+
+
+def dropped_blocks(
+    records: Sequence[NormalizedRecord],
+    shared_ids: bool = SHARED_IDS_DEFAULT,
+    max_block_size: int = MAX_BLOCK_SIZE,
+) -> tuple[DroppedBlock, ...]:
+    """Key values left out of blocking because too many records share them, largest first."""
+    big = _block_sizes(_long_values(records, shared_ids), max_block_size)
+    return tuple(
+        DroppedBlock(key=k, value_masked=hashlib.sha256(v.encode()).hexdigest()[:12], size=n)
+        for k, v, n in big.sort("size", "key", descending=[True, False]).iter_rows()
+    )
+
+
+def candidate_pairs(
+    records: Sequence[NormalizedRecord],
+    shared_ids: bool = SHARED_IDS_DEFAULT,
+    max_block_size: int = MAX_BLOCK_SIZE,
+) -> pl.DataFrame:
+    """Columns a, b, keys (sorted list of key names). Null key values never match, and a key
+    value shared by more than max_block_size records is skipped (see dropped_blocks)."""
+    long = _long_values(records, shared_ids)
+    long = long.join(_block_sizes(long, max_block_size), on=["key", "value"], how="anti")
     return (
         long.join(long, on=["key", "value"], suffix="_b")
         .filter(pl.col("record_id") < pl.col("record_id_b"))
@@ -74,6 +130,7 @@ class BlockingReport(BaseModel):
     found_pairs: int
     recall_per_key: dict[str, float]
     missed_examples: tuple[tuple[str, str], ...]
+    dropped_blocks: tuple[DroppedBlock, ...] = ()
 
     @property
     def recall(self) -> float:
@@ -86,7 +143,11 @@ class BlockingReport(BaseModel):
 
 
 def evaluate(
-    pairs: pl.DataFrame, key: AnswerKey, n_records: int, shared_ids: bool = SHARED_IDS_DEFAULT
+    pairs: pl.DataFrame,
+    key: AnswerKey,
+    n_records: int,
+    shared_ids: bool = SHARED_IDS_DEFAULT,
+    dropped: tuple[DroppedBlock, ...] = (),
 ) -> BlockingReport:
     """Blocking recall against the pair answer key, overall and per key."""
     truth = pl.DataFrame(sorted(key.pairs), schema=["a", "b"], orient="row")
@@ -106,4 +167,5 @@ def evaluate(
         found_pairs=found.height,
         recall_per_key=per_key,
         missed_examples=tuple(missed),
+        dropped_blocks=dropped,
     )

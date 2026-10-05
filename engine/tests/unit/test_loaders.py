@@ -12,9 +12,11 @@ from bob_resolve.load import (
     to_records,
 )
 
+AS_OF = date(2026, 10, 1)
+
 
 def test_crm_loads_every_row_with_lineage(snapshot_dir: Path) -> None:
-    crm = read_crm(snapshot_dir / "clients.csv")
+    crm = read_crm(snapshot_dir / "clients.csv", AS_OF)
     assert crm.height == 2040
     assert crm["client_id"].n_unique() == 2040
     assert crm["row_number"].to_list() == list(range(1, 2041))
@@ -26,7 +28,7 @@ def test_crm_loads_every_row_with_lineage(snapshot_dir: Path) -> None:
 
 
 def test_enrollment_loads_semicolons_and_two_digit_years(snapshot_dir: Path) -> None:
-    enr = read_enrollment(snapshot_dir / "enrollment_export.csv")
+    enr = read_enrollment(snapshot_dir / "enrollment_export.csv", AS_OF)
     assert enr.height == 1847
     first = enr.row(0, named=True)
     assert (first["first_name"], first["dob"], first["policy_number"]) == (
@@ -41,8 +43,8 @@ def test_enrollment_loads_semicolons_and_two_digit_years(snapshot_dir: Path) -> 
 
 
 def test_records_are_typed_with_source_tags(snapshot_dir: Path) -> None:
-    crm = to_records(read_crm(snapshot_dir / "clients.csv"), "crm")
-    enr = to_records(read_enrollment(snapshot_dir / "enrollment_export.csv"), "enrollment")
+    crm = to_records(read_crm(snapshot_dir / "clients.csv", AS_OF), "crm")
+    enr = to_records(read_enrollment(snapshot_dir / "enrollment_export.csv", AS_OF), "enrollment")
     assert all(isinstance(r, PersonRecord) for r in crm + enr)
     assert crm[10].record_id == "crm:C-00011" and crm[10].first_name == "Dave"
     assert crm[10].lineage.row_number == 11

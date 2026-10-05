@@ -1,8 +1,11 @@
 import re
+from datetime import date
 from pathlib import Path
 
 from bob_resolve.load import read_crm, read_enrollment
 from bob_resolve.truth import load_hard_case_key
+
+AS_OF = date(2026, 10, 1)
 
 MBI = re.compile(
     r"^[1-9][AC-HJKMNP-RT-Y][AC-HJKMNP-RT-Y0-9]\d[AC-HJKMNP-RT-Y][AC-HJKMNP-RT-Y0-9]\d[AC-HJKMNP-RT-Y]{2}\d{2}$"
@@ -10,8 +13,8 @@ MBI = re.compile(
 
 
 def test_hard_cases_load_and_cover_examples_4_to_7(hard_cases_dir: Path) -> None:
-    crm = read_crm(hard_cases_dir / "clients.csv")
-    enr = read_enrollment(hard_cases_dir / "enrollment_export.csv")
+    crm = read_crm(hard_cases_dir / "clients.csv", AS_OF)
+    enr = read_enrollment(hard_cases_dir / "enrollment_export.csv", AS_OF)
     assert crm.height + enr.height < 30
     assert enr["dob"].null_count() == 0
     key = load_hard_case_key(hard_cases_dir / "expected.json")
@@ -30,8 +33,8 @@ def test_hard_cases_load_and_cover_examples_4_to_7(hard_cases_dir: Path) -> None
 
 
 def test_hard_cases_are_obviously_synthetic(hard_cases_dir: Path) -> None:
-    crm = read_crm(hard_cases_dir / "clients.csv")
-    enr = read_enrollment(hard_cases_dir / "enrollment_export.csv")
+    crm = read_crm(hard_cases_dir / "clients.csv", AS_OF)
+    enr = read_enrollment(hard_cases_dir / "enrollment_export.csv", AS_OF)
     for mbi in crm["mbi"].to_list() + enr["mbi"].to_list():
         assert MBI.match(mbi) and mbi.startswith("9A"), mbi
     assert all(p.startswith("(555) 555-") for p in crm["phone"])

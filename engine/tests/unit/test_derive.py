@@ -11,7 +11,7 @@ from bob_resolve.load import read_crm, read_enrollment
 from bob_resolve.truth import build_snapshot_answer_key
 from bob_resolve.truth.derive import DERIVED_DEFECTS, DeriveResult, derive_clean_enrollment
 
-AS_OF = date(2026, 10, 5)
+AS_OF = date(2026, 10, 1)
 
 
 @pytest.fixture(scope="module")
@@ -102,8 +102,10 @@ def test_nickname_shows_on_crm_and_original_on_derived(
 def test_answer_key_pairs_are_the_same_on_the_derived_side(
     snapshot_dir: Path, derived_dir: Path
 ) -> None:
-    snap = build_snapshot_answer_key(snapshot_dir)
-    clean = build_snapshot_answer_key(snapshot_dir, derived_dir / "enrollment_clean.csv")
+    snap = build_snapshot_answer_key(snapshot_dir, as_of=AS_OF)
+    clean = build_snapshot_answer_key(
+        snapshot_dir, derived_dir / "enrollment_clean.csv", as_of=AS_OF
+    )
     assert clean.pairs == snap.pairs and len(clean.pairs) == 2167
     assert clean.unresolved == snap.unresolved
 

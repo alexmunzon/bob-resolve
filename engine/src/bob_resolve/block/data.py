@@ -18,11 +18,11 @@ def enrollment_path(fixtures: Path, side: EnrollmentSide) -> Path:
 
 
 def load_normalized(
-    fixtures: Path, side: EnrollmentSide, as_of: date | None = None
+    fixtures: Path, side: EnrollmentSide, as_of: date
 ) -> tuple[list[NormalizedRecord], AnswerKey]:
     """CRM clients plus the chosen enrollment side, normalized, with the matching answer key."""
     snapshot, enr_csv = fixtures / "agency-a-snapshot", enrollment_path(fixtures, side)
     crm = to_records(read_crm(snapshot / "clients.csv", as_of), "crm")
     enr = to_records(read_enrollment(enr_csv, as_of), "enrollment")
-    key = build_snapshot_answer_key(snapshot, enr_csv)
+    key = build_snapshot_answer_key(snapshot, enr_csv, as_of=as_of)
     return [normalize_record(r) for r in crm + enr], key

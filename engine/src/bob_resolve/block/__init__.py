@@ -4,8 +4,18 @@ from bob_resolve.block.candidates import (
     ALL_KEYS,
     SHARED_ID_KEYS,
     BlockingReport,
+    DroppedBlock,
     candidate_pairs,
+    dropped_blocks,
     evaluate,
 )
 
-__all__ = ["ALL_KEYS", "SHARED_ID_KEYS", "BlockingReport", "candidate_pairs", "evaluate"]
+__all__ = [
+    "ALL_KEYS",
+    "SHARED_ID_KEYS",
+    "BlockingReport",
+    "DroppedBlock",
+    "candidate_pairs",
+    "dropped_blocks",
+    "evaluate",
+]

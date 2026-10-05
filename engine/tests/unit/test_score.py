@@ -27,7 +27,7 @@ from bob_resolve.score import (
 )
 from bob_resolve.truth import AnswerKey, UnresolvedRow
 
-AS_OF = date(2026, 10, 5)
+AS_OF = date(2026, 10, 1)
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
 
 
