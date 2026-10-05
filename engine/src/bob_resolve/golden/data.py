@@ -16,13 +16,17 @@ from bob_resolve.score import score_candidates
 
 
 def load_people(
-    crm_csv: Path, enrollment_csv: Path, policies_csv: Path | None, as_of: date
+    crm_csv: Path,
+    enrollment_csv: Path,
+    policies_csv: Path | None,
+    as_of: date,
+    row_prefix: str = "",
 ) -> tuple[list[PersonRecord], dict[str, date]]:
     """Records plus "most recent" dates: an enrollment row's own effective date; a CRM client's
     latest policy effective date in policies.csv. A record with neither has no date."""
     crm, enr = read_crm(crm_csv, as_of), read_enrollment(enrollment_csv, as_of)
     recency = {
-        f"enrollment:{row}": d
+        f"enrollment:{row_prefix}{row}": d
         for row, d in enr.select("row_number", "effective_date").iter_rows()
         if d is not None
     }
@@ -33,7 +37,7 @@ def load_people(
             .agg(pl.col("effective_date").str.to_date("%Y-%m-%d", strict=False).max())
         )
         recency |= {f"crm:{c}": d for c, d in latest.iter_rows() if d is not None}
-    return to_records(crm, "crm") + to_records(enr, "enrollment"), recency
+    return to_records(crm, "crm") + to_records(enr, "enrollment", row_prefix), recency
 
 
 def resolve_side(
