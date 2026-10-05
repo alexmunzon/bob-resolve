@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from bob_resolve.cluster import split_on_conflict
-from bob_resolve.config import AUTO_MATCH_RULE_ID
+from bob_resolve.config import AUTO_MATCH_RULE_ID, REVIEW_RULE_ID
 from bob_resolve.golden.survivorship import GoldenPerson, build_golden
 from bob_resolve.load.records import PersonRecord
 from bob_resolve.mergelog import MergeLogEntry
@@ -49,8 +49,11 @@ def resolve(
     *,
     run_id: str,
     clock: Callable[[], datetime],
+    review_pairs: frozenset[tuple[str, str]] = frozenset(),
 ) -> Resolution:
-    """A record with no name, DOB, or MBI is not a person: it is listed as unidentifiable."""
+    """A record with no name, DOB, or MBI is not a person: it is listed as unidentifiable.
+    `review_pairs` are matches a human decided (PR 7): their lines and records carry tier
+    "review" and rule REVIEW-DECISION instead of the rules arm."""
     people_recs = [r for r in records if _identifiable(r)]
     ids = {r.record_id for r in people_recs}
     matches = [p for p in scored if p.decision == "AUTO_MATCH" and {p.a, p.b} <= ids]
@@ -59,12 +62,14 @@ def resolve(
     people, review, log = [], [], []
 
     def line(p: ScoredPair, action: Literal["merge", "split"], rule: str) -> MergeLogEntry:
-        t = clock().isoformat()
+        t, by_human = clock().isoformat(), (p.a, p.b) in review_pairs
+        if by_human and action == "merge":
+            rule = REVIEW_RULE_ID
         return MergeLogEntry(
             action=action,
             a=p.a,
             b=p.b,
-            tier="rules",
+            tier="review" if by_human else "rules",
             score=p.score,
             rule_ids=(rule,),
             run_id=run_id,
@@ -88,7 +93,9 @@ def resolve(
             else line(p, "split", "CLUSTER_CONFLICT")
         )
     for c in clusters:
+        via = {e for e in kept & review_pairs if e[0] in c}
         tier = {r: "single" if len(c) == 1 else "rules" for r in c}
+        tier |= {r: "review" for e in via for r in e}
         person = build_golden([by_id[r] for r in c], recency, tier)
         people.append(person)
         if person.review_reasons:

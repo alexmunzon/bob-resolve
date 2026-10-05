@@ -1,0 +1,187 @@
+"""PR 7: SPEC section 9 examples 1 to 8 end to end through `bob-resolve run`, plus every
+SPEC decision 2 target on all four side and shared-ids combinations. Jev and LLM are off."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import polars as pl
+import pytest
+from typer.testing import CliRunner
+
+from bob_resolve.cli import app
+from bob_resolve.golden import GOLDEN_FIELDS
+
+FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
+NOW = "2026-10-01T12:00:00+00:00"
+COMBOS = [(s, ids) for s in ("snapshot", "derived") for ids in (True, False)]
+
+
+def run_cli(out: Path, side: str, ids: bool, run_id: str, *extra: str) -> Path:
+    args = ["run", "--enrollment", side, "--shared-ids" if ids else "--no-shared-ids"]
+    args += ["--out", str(out), "--run-id", run_id, "--as-of", "2026-10-01", "--now", NOW]
+    result = CliRunner().invoke(app, [*args, *extra])
+    assert result.exit_code == 0, result.output
+    return out / run_id
+
+
+def load(run: Path) -> dict[str, Any]:
+    def jsonl(name: str) -> list[dict[str, Any]]:
+        return [json.loads(x) for x in (run / name).read_text().splitlines()]
+
+    return {
+        "manifest": json.loads((run / "manifest.json").read_text()),
+        "scorecard": json.loads((run / "scorecard.json").read_text()),
+        "households": json.loads((run / "households.json").read_text()),
+        "people": pl.read_csv(run / "people.csv", infer_schema=False),
+        "log": jsonl("merge_log.jsonl"),
+        "queue": jsonl("review_queue.jsonl"),
+    }
+
+
+@pytest.fixture(scope="module", params=COMBOS, ids=[f"{s}-ids-{i}" for s, i in COMBOS])
+def combo(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Any:
+    side, ids = request.param
+    return side, ids, load(run_cli(tmp_path_factory.mktemp("runs"), side, ids, "r"))
+
+
+@pytest.fixture(scope="module")
+def hard(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    return load(run_cli(tmp_path_factory.mktemp("runs"), "hard-cases", True, "hc"))
+
+
+def person_of(people: pl.DataFrame) -> dict[str, str]:
+    return {
+        r: p for p, ids in people.select("person_id", "record_ids").rows() for r in ids.split(";")
+    }
+
+
+def household_of(run: dict[str, Any]) -> dict[str, str]:
+    return {p: h["household_id"] for h in run["households"]["households"] for p in h["person_ids"]}
+
+
+def merged(run: dict[str, Any], a: str, b: str) -> bool:
+    return any({e["a"], e["b"]} == {a, b} and e["action"] == "merge" for e in run["log"])
+
+
+def test_decision_2_targets_on_every_combination(combo: Any) -> None:
+    side, ids, run = combo
+    sc = run["scorecard"]
+    for name, target in (
+        ("blocking_recall", 0.98),
+        ("auto_merge_precision", 0.99),
+        ("recall_after_review", 0.90),
+    ):
+        m = sc["metrics"][name]
+        assert m["value"] >= target and m["target"] == target and m["meets_target"], name
+        assert m["label"] == "measured on synthetic data"
+        assert m["enrollment_side"] == side and m["shared_ids"] == ids
+    assert sc["people_holding_two_true_people"] == 0
+    assert sc["review_queue"]["size"] == len(run["queue"])
+    assert sc["unidentifiable"] == 9
+
+
+def test_example_1_happy_path_snapshot(combo: Any) -> None:
+    side, ids, run = combo
+    people = run["people"]
+    assert 2000 <= people.height <= 2000 + run["scorecard"]["people_left_split"]
+    assert run["scorecard"]["people"] == people.height
+    for f in GOLDEN_FIELDS:
+        has = people.filter(pl.col(f).is_not_null())
+        assert has[f"{f}_source"].null_count() == 0 and has[f"{f}_row"].null_count() == 0
+        assert set(has[f"{f}_tier"].unique()) <= {"rules", "single"}
+
+
+def test_example_2_near_duplicate_with_typo(combo: Any) -> None:
+    _, _, run = combo
+    p = person_of(run["people"])
+    assert p["crm:C-02011"] == p["crm:C-00023"]
+    line = next(e for e in run["log"] if (e["a"], e["b"]) == ("crm:C-00023", "crm:C-02011"))
+    assert line["tier"] == "rules" and line["score"] is not None and line["rule_ids"]
+
+
+def test_example_3_nickname_across_sources(combo: Any, hard: dict[str, Any]) -> None:
+    side, _, run = combo
+    dave = hard["people"].filter(pl.col("record_ids").str.contains("crm:HC-009"))
+    assert dave["first_name"].item() == "David" and "Dave" in dave["aliases"].item().split(";")
+    if side != "derived":
+        return
+    crm = pl.read_csv(FIXTURES / "agency-a-snapshot/clients.csv", infer_schema=False)
+    first = dict(crm.select("client_id", "first_name").rows())
+    defects = json.loads((FIXTURES / "agency-a-snapshot/ground_truth.json").read_text())["defects"]
+    nick = {d["record_key"]["client_id"] for d in defects if d["defect_type"] == "nickname"}
+    checked = 0
+    for row in run["people"].iter_rows(named=True):
+        ids = row["record_ids"].split(";")
+        crm_ids = [i[4:] for i in ids if i.startswith("crm:") and i[4:] in nick]
+        if crm_ids and any(i.startswith("enrollment:") for i in ids):
+            assert first[crm_ids[0]] in (row["aliases"] or "").split(";")
+            assert row["first_name_source"].startswith("enrollment:")
+            checked += 1
+    assert checked >= 20
+
+
+def test_example_4_twins_stay_two_people_in_one_household(hard: dict[str, Any]) -> None:
+    p, hh = person_of(hard["people"]), household_of(hard)
+    assert p["crm:HC-001"] != p["crm:HC-002"]
+    assert hh[p["crm:HC-001"]] == hh[p["crm:HC-002"]]
+    assert not merged(hard, "crm:HC-001", "crm:HC-002")
+    assert not merged(hard, "enrollment:1", "enrollment:2")
+
+
+def test_example_5_jr_and_sr(hard: dict[str, Any]) -> None:
+    p = person_of(hard["people"])
+    assert p["crm:HC-003"] != p["crm:HC-004"] and p["crm:HC-003"] != p["enrollment:4"]
+    for a, b in (("crm:HC-003", "crm:HC-004"), ("crm:HC-003", "enrollment:4")):
+        assert not merged(hard, a, b)
+        for item in hard["queue"]:
+            if {a, b} <= {r["record_id"] for r in item["records"]}:
+                assert item["suggestion"] == "different_people"
+
+
+def test_example_6_shared_contact_details(hard: dict[str, Any]) -> None:
+    p, hh = person_of(hard["people"]), household_of(hard)
+    assert p["crm:HC-005"] != p["crm:HC-006"]
+    assert hh[p["crm:HC-005"]] == hh[p["crm:HC-006"]]
+    assert not merged(hard, "crm:HC-005", "crm:HC-006")
+
+
+def test_example_7_identity_conflict_goes_to_review_high(hard: dict[str, Any]) -> None:
+    p = person_of(hard["people"])
+    assert p["crm:HC-007"] != p["crm:HC-008"]
+    item = next(
+        i
+        for i in hard["queue"]
+        if {r["record_id"] for r in i["records"]} == {"crm:HC-007", "crm:HC-008"}
+    )
+    assert item["reason"] == "IDENTITY_CONFLICT" and item["severity"] == "high"
+    assert "GR-002" in item["rule_ids"]
+    for r in item["records"]:  # minimized: MBI masked to the last 4
+        assert r["mbi_masked"].startswith("*") and len(r["mbi_masked"].strip("*")) == 4
+        assert "mbi" not in r and "notes" not in r
+
+
+def test_example_8_jev_off_every_gray_pair_queued(combo: Any) -> None:
+    _, _, run = combo
+    m = run["manifest"]
+    assert m["modes"] == {"rules": "on", "jev": "off", "llm": "off"}
+    for arm in ("jev", "llm"):
+        assert m[arm] == {"mode": "off", "calls": 0, "cost_usd": 0.0}
+    gray = run["scorecard"]["per_tier"]["rules"]["gray"]
+    queued = [i for i in run["queue"] if i["kind"] == "gray_pair"]
+    assert len(queued) == gray
+    for i in run["queue"]:
+        assert i["deciding_tier"] == "rules" and i["severity"] in ("high", "medium")
+
+
+def test_examples_9_and_10_guard_rails_reach_the_queue(hard: dict[str, Any]) -> None:
+    """GR-004 (two Owen Marlowes) and GR-005 (twins Patrick and Patricia) stay apart and are
+    queued with their rule id; GR-005 suggests "different people"."""
+    p = person_of(hard["people"])
+    for a, b, rule, suggestion in (
+        ("crm:HC-010", "crm:HC-011", "GR-004", "unsure"),
+        ("crm:HC-012", "crm:HC-013", "GR-005", "different_people"),
+    ):
+        assert p[a] != p[b] and not merged(hard, a, b)
+        item = next(i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == {a, b})
+        assert rule in item["rule_ids"] and item["suggestion"] == suggestion

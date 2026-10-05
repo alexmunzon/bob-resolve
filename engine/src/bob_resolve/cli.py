@@ -1,6 +1,7 @@
 """Command line entry point for bob-resolve. More commands arrive in later PRs."""
 
-from datetime import date, datetime
+import json
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -10,6 +11,7 @@ from bob_resolve import __version__
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
 from bob_resolve.config import DEFAULT_AS_OF, SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
+from bob_resolve.run import RunOptions, RunRefused, RunSide, apply_review, execute
 from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth.derive import derive_clean_enrollment
 
@@ -112,3 +114,78 @@ def score(
         typer.echo(f"  false merge: {a} {b}")
     typer.echo(f"as of: {day.isoformat()}")
     typer.echo("measured on synthetic data")
+
+
+def _now(now: str | None) -> tuple[datetime, bool]:
+    """A fixed --now freezes every timestamp and leaves timings out, so reruns are identical."""
+    return (datetime.fromisoformat(now), True) if now else (datetime.now(UTC), False)
+
+
+AsOf = Annotated[
+    datetime, typer.Option(formats=["%Y-%m-%d"], help="Date ages and future DOBs are judged on")
+]
+Now = Annotated[str | None, typer.Option(help="Fixed ISO time for a repeatable run")]
+Parquet = Annotated[bool, typer.Option("--parquet/--no-parquet", help="Also write people.parquet")]
+
+
+@app.command("run")
+def run_command(
+    enrollment: Annotated[
+        RunSide, typer.Option(help="snapshot, derived (from the answer key), or hard-cases")
+    ],
+    out: Annotated[Path, typer.Option(help="Runs folder; the run is written to <out>/<run-id>")],
+    run_id: Annotated[str, typer.Option(help="Run folder name")],
+    shared_ids: Annotated[
+        bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")
+    ] = SHARED_IDS_DEFAULT,
+    overwrite: Annotated[bool, typer.Option(help="Replace an existing run folder")] = False,
+    as_of: AsOf = _AS_OF_DEFAULT,
+    now: Now = None,
+    parquet: Parquet = True,
+    fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+) -> None:
+    """Resolve one fixture side end to end and write an immutable run folder. Jev and LLM off."""
+    t, frozen = _now(now)
+    opts = RunOptions(
+        fixtures.resolve(), enrollment, shared_ids, out, run_id, as_of.date(), t, frozen,
+        overwrite, parquet,
+    )  # fmt: skip
+    try:
+        folder = execute(opts)
+    except RunRefused as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+    sc = json.loads((folder / "scorecard.json").read_text())
+    typer.echo(f"run {run_id}: {sc['people']} people, {sc['households']} households")
+    typer.echo(f"review queue: {sc['review_queue']}")
+    for name, m in sc["metrics"].items():
+        typer.echo(f"{name}: {m['value']:.4f} (target {m['target']})")
+    typer.echo("measured on synthetic data")
+
+
+review_app = typer.Typer(help="Human review of the queue. Labels are stored, never learned from.")
+app.add_typer(review_app, name="review")
+
+
+@review_app.command("apply")
+def review_apply(
+    run: Annotated[Path, typer.Option(help="Existing run folder (never changed)")],
+    decisions: Annotated[Path, typer.Option(help="Decisions file (JSONL)")],
+    out: Annotated[Path, typer.Option(help="Runs folder for the new run")],
+    run_id: Annotated[str, typer.Option(help="New run folder name")],
+    overwrite: Annotated[bool, typer.Option(help="Replace an existing new run folder")] = False,
+    now: Now = None,
+    parquet: Parquet = True,
+    fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+) -> None:
+    """Write a new run with the decisions applied; the merge log only gains new lines."""
+    t, frozen = _now(now)
+    opts = RunOptions(
+        fixtures.resolve(), "snapshot", True, out, run_id, date.min, t, frozen, overwrite, parquet
+    )
+    try:
+        folder, applied, stored = apply_review(run, decisions, opts)
+    except (RunRefused, ValueError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from e
+    typer.echo(f"new run {folder.name}: {applied} decisions applied, {stored} stored only")

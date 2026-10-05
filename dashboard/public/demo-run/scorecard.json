@@ -1,0 +1,77 @@
+{
+  "candidate_pairs": 3458,
+  "enrollment_side": "derived",
+  "enrollment_side_label": "derived from the answer key",
+  "guard_rail_hits": {
+    "GR-001": 0,
+    "GR-002": 0,
+    "GR-003": 273,
+    "GR-004": 0,
+    "GR-005": 1279
+  },
+  "households": 1425,
+  "label": "measured on synthetic data",
+  "merges": {
+    "auto": 2139,
+    "review": 0,
+    "splits": 0
+  },
+  "metrics": {
+    "auto_merge_precision": {
+      "enrollment_side": "derived",
+      "label": "measured on synthetic data",
+      "meets_target": true,
+      "shared_ids": false,
+      "target": 0.99,
+      "value": 1.0
+    },
+    "blocking_recall": {
+      "enrollment_side": "derived",
+      "label": "measured on synthetic data",
+      "meets_target": true,
+      "shared_ids": false,
+      "target": 0.98,
+      "value": 1.0
+    },
+    "recall_after_review": {
+      "enrollment_side": "derived",
+      "label": "measured on synthetic data",
+      "meets_target": true,
+      "shared_ids": false,
+      "target": 0.9,
+      "value": 1.0
+    }
+  },
+  "people": 2025,
+  "people_holding_two_true_people": 0,
+  "people_left_split": 25,
+  "per_tier": {
+    "jev": {
+      "calls": 0,
+      "mode": "off"
+    },
+    "llm": {
+      "calls": 0,
+      "mode": "off"
+    },
+    "rules": {
+      "auto_match": 2139,
+      "auto_reject": 1230,
+      "gray": 89
+    }
+  },
+  "records_in": 3887,
+  "review_queue": {
+    "by_reason": {
+      "GRAY_ZONE": 89
+    },
+    "by_severity": {
+      "high": 65,
+      "medium": 24
+    },
+    "size": 89
+  },
+  "shared_ids": false,
+  "true_pairs": 2167,
+  "unidentifiable": 9
+}

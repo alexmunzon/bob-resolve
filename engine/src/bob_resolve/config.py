@@ -113,3 +113,11 @@ AUTO_MATCH_RULE_ID: Final[str] = "AUTO-MATCH-HIGH"
 # Damerau-Levenshtein edits (a typo), or one is missing. Jaro-Winkler alone rates Patrick and
 # Patricia close; opposite-sex twins would otherwise auto-merge.
 FIRST_NAME_TYPO_MAX_EDITS: Final[int] = 1
+
+# PR 7
+# Run command. Jev and the LLM arm are not built yet, so a run records them as off with zero
+# calls and zero cost, and every gray pair goes to the review queue (SPEC example 8).
+RUN_JEV_MODE: Final[Literal["off"]] = "off"
+RUN_LLM_MODE: Final[Literal["off"]] = "off"
+# Rule id on a merge log line for a pair a human decided "same person" (review apply).
+REVIEW_RULE_ID: Final[str] = "REVIEW-DECISION"

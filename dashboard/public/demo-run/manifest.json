@@ -1,0 +1,68 @@
+{
+  "args": {
+    "enrollment": "derived",
+    "shared_ids": false
+  },
+  "as_of": "2026-10-01",
+  "created_at": "2026-10-01T12:00:00+00:00",
+  "decisions_applied": 0,
+  "inputs": [
+    {
+      "path": "agency-a-snapshot/clients.csv",
+      "role": "crm",
+      "sha256": "196e8617dcc37dea794e4f6e6067aeafd53fccc1263ca209465a88f742d32453"
+    },
+    {
+      "path": "agency-a-derived/enrollment_clean.csv",
+      "role": "enrollment",
+      "sha256": "55e3eff422e1b38023e98f735fe36250a10d20892d741ead6b76cc709d9fd70a"
+    },
+    {
+      "path": "agency-a-snapshot/policies.csv",
+      "role": "policies",
+      "sha256": "017e616ccd8cb9c68361a7b0e686fc05d9f62e577e9bcc49408594bb57e8b892"
+    },
+    {
+      "path": "agency-a-snapshot/ground_truth.json",
+      "role": "answer_key",
+      "sha256": "16c6dcdc7d74afbe230d6e9778eda4436399b445d235dd08d06ea7aa5ae16534"
+    }
+  ],
+  "jev": {
+    "calls": 0,
+    "cost_usd": 0.0,
+    "mode": "off"
+  },
+  "label": "measured on synthetic data",
+  "llm": {
+    "calls": 0,
+    "cost_usd": 0.0,
+    "mode": "off"
+  },
+  "modes": {
+    "jev": "off",
+    "llm": "off",
+    "rules": "on"
+  },
+  "outputs": {
+    "households.json": "225d94f118c6105869d00e9f3a150aeab3b3e4e5a4a8ca61766f7cab0fdbe08d",
+    "merge_log.jsonl": "68daab820138a93096f19260a25d701bf2f2661fa33ee49f1abe7918f69a5128",
+    "people.csv": "2b62c0f9257b4cfc6e0df700da4ed3b7e60d245e9d135953d7fc0e1db272c5e2",
+    "review_queue.jsonl": "fe9cf2d2f2a5aa3f30e0c82cfc6341a85126d29461442caf8ae32942aeeb39aa",
+    "scorecard.json": "1a5477b37c13228461ff4295a84875ffc8cc4e22cdd7bdd0fb1227bc6d87e5bc"
+  },
+  "parent_run_id": null,
+  "run_id": "demo-run",
+  "thresholds": {
+    "gray_same_person_min": 0.545,
+    "max_block_size": 50,
+    "score_high": 0.99,
+    "score_low": 0.1
+  },
+  "timings_ms": null,
+  "versions": {
+    "engine": "0.0.0",
+    "polars": "1.44.2",
+    "python": "3.12"
+  }
+}
