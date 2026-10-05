@@ -14,7 +14,7 @@ from bob_resolve.truth.multi import build_multi_truth
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
 ENGINE = Path(__file__).resolve().parents[2]
-PIN = "agency-data-commons @ git+file:///Users/alexmunzon/Data%20intake/agency-data-commons@v0.2.0"
+PIN = "agency-data-commons @ git+https://github.com/alexmunzon/agency-data-commons@v0.2.0"
 AS_OF = date(2026, 10, 1)
 
 
