@@ -9,7 +9,9 @@
     "HC-006": ["crm:HC-006", "enrollment:6"],
     "HC-007": ["crm:HC-007", "enrollment:7"],
     "HC-008": ["crm:HC-008", "enrollment:8"],
-    "HC-009": ["crm:HC-009", "enrollment:9"]
+    "HC-009": ["crm:HC-009", "enrollment:9"],
+    "HC-010": ["crm:HC-010"],
+    "HC-011": ["crm:HC-011"]
   },
   "must_not_merge": [
     {"example": 4, "a": "crm:HC-001", "b": "crm:HC-002", "reason": "Twins: same last name, DOB, address and phone, but different first names and different MBIs."},
@@ -18,7 +20,8 @@
     {"example": 5, "a": "crm:HC-003", "b": "enrollment:4", "reason": "Enrollment drops the Jr suffix, but the DOB is 27 years from Sr's and the MBI is Jr's."},
     {"example": 6, "a": "crm:HC-005", "b": "crm:HC-006", "reason": "Spouses who share a phone and an email: different first names and DOBs. Shared contact alone never merges."},
     {"example": 7, "a": "crm:HC-007", "b": "crm:HC-008", "reason": "Same MBI on both CRM rows, but DOBs are not within one edit and names differ: a pasted MBI, IDENTITY_CONFLICT."},
-    {"example": 7, "a": "crm:HC-008", "b": "enrollment:7", "reason": "Nina's CRM row carries Carl's MBI; Carl's enrollment row must not pull her in."}
+    {"example": 7, "a": "crm:HC-008", "b": "enrollment:7", "reason": "Nina's CRM row carries Carl's MBI; Carl's enrollment row must not pull her in."},
+    {"example": 9, "a": "crm:HC-010", "b": "crm:HC-011", "reason": "Two different people named Owen Marlowe with the same DOB and nothing else in common: different phone, email, address, and MBI. Ambiguous identity key (GR-004)."}
   ],
   "same_person": [
     {"example": 3, "a": "crm:HC-009", "b": "enrollment:9", "reason": "CRM nickname Dave, enrollment legal name David, same DOB and MBI."},

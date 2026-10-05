@@ -1,0 +1,144 @@
+"""Rules arm: weighted score, two cutoffs, and guard rails that override the score.
+
+A false merge is worse than a missed match (SPEC decision 2). Guard rails never let a pair
+auto-match; a pair they stop goes to the gray zone with the rule id recorded on it.
+"""
+
+import math
+from collections import defaultdict
+from collections.abc import Sequence
+from itertools import combinations
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict
+
+from bob_resolve.config import (
+    GRAY_SAME_PERSON_MIN,
+    SCORE_BIAS,
+    SCORE_HIGH,
+    SCORE_LOW,
+    SCORE_WEIGHTS,
+)
+from bob_resolve.normalize.record import NormalizedRecord
+from bob_resolve.score.compare import Comparison, compare
+
+Decision = Literal["AUTO_MATCH", "GRAY", "AUTO_REJECT"]
+Suggestion = Literal["same_person", "different_people", "unsure"]
+RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004"]
+GUARD_RAILS: dict[RuleId, str] = {
+    "GR-001": "Different generational suffix (Jr and Sr) never auto-matches.",
+    "GR-002": "Shared MBI with a DOB neither within one edit nor a month-day swap: "
+    "IDENTITY_CONFLICT, never auto-matches.",
+    "GR-003": "Shared phone or email alone (names and DOB not compatible) never auto-matches.",
+    "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
+    "and some holder conflicts with another, so no pair on that key auto-matches.",
+}
+IdentityKey = tuple[str, str, str]
+_CLOSE_DOB = frozenset({"exact", "transposition", "month_day_swap", "one_edit"})
+
+
+class ScoredPair(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    a: str
+    b: str
+    comparison: Comparison
+    score: float
+    decision: Decision
+    guard_rails: tuple[RuleId, ...]
+    reason: Literal["IDENTITY_CONFLICT"] | None
+    suggestion: Suggestion | None
+
+
+def weighted_score(c: Comparison) -> float:
+    """Logistic of the bias plus each present field's level weight: a number in [0, 1]."""
+    total = SCORE_BIAS
+    for field, weights in SCORE_WEIGHTS.items():
+        level = getattr(c, field)
+        if level is not None:
+            total += weights[level]
+    return 1 / (1 + math.exp(-total))
+
+
+def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
+    hits: list[RuleId] = []
+    if c.suffix == "different":
+        hits.append("GR-001")
+    if c.mbi == "same" and c.dob == "far":
+        hits.append("GR-002")
+    identity_ok = (
+        c.first in ("equal", "nickname", "close")
+        and c.last in ("equal", "close")
+        and c.dob in _CLOSE_DOB
+    )
+    shared_contact = c.phone == "same" or c.email == "same"
+    if shared_contact and c.mbi != "same" and not identity_ok:
+        hits.append("GR-003")
+    return tuple(hits)
+
+
+def identity_key(r: NormalizedRecord) -> IdentityKey | None:
+    """Canonical first name, last name, DOB; None when any part is missing."""
+    if r.first_name_canonical and r.last_name and r.dob_key:
+        return (r.first_name_canonical, r.last_name, r.dob_key)
+    return None
+
+
+def _conflict(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool) -> bool:
+    """Different MBI (ids on), different suffix, or different phone AND address AND email."""
+    if shared_ids and a.mbi and b.mbi and a.mbi != b.mbi:
+        return True
+    if a.suffix and b.suffix and a.suffix != b.suffix:
+        return True
+    contact = [(a.phone, b.phone), (a.address_line1, b.address_line1), (a.email, b.email)]
+    return all(x and y and x != y for x, y in contact)
+
+
+def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set[IdentityKey]:
+    """GR-004: identity keys held by two or more records where any two holders conflict."""
+    holders: dict[IdentityKey, list[NormalizedRecord]] = defaultdict(list)
+    for r in records:
+        if (k := identity_key(r)) is not None:
+            holders[k].append(r)
+    return {
+        k
+        for k, rs in holders.items()
+        if any(_conflict(a, b, shared_ids) for a, b in combinations(rs, 2))
+    }
+
+
+def decide(score: float, rails: tuple[RuleId, ...]) -> tuple[Decision, Suggestion | None]:
+    """An identity conflict or an ambiguous key always goes to review. Other rails only stop an
+    auto-match; a pair below the low line is still rejected, since rejecting merges no one."""
+    if "GR-002" in rails:
+        return "GRAY", "different_people"
+    if "GR-004" in rails:
+        return "GRAY", "unsure"
+    if score < SCORE_LOW:
+        return "AUTO_REJECT", None
+    if score >= SCORE_HIGH and not rails:
+        return "AUTO_MATCH", None
+    if rails:
+        return "GRAY", "different_people"
+    return "GRAY", "same_person" if score >= GRAY_SAME_PERSON_MIN else "unsure"
+
+
+def score_pair(
+    a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True, ambiguous_key: bool = False
+) -> ScoredPair:
+    """`ambiguous_key` is True when both records hold one GR-004 key (see ambiguous_keys)."""
+    c = compare(a, b, shared_ids)
+    s, rails = weighted_score(c), guard_rails(c) + (("GR-004",) if ambiguous_key else ())
+    decision, suggestion = decide(s, rails)
+    if suggestion == "same_person" and c.first not in ("equal", "nickname", "close"):
+        suggestion = "unsure"  # never suggest one person when first names are incompatible
+    return ScoredPair(
+        a=a.record_id,
+        b=b.record_id,
+        comparison=c,
+        score=s,
+        decision=decision,
+        guard_rails=rails,
+        reason="IDENTITY_CONFLICT" if "GR-002" in rails else None,
+        suggestion=suggestion,
+    )
