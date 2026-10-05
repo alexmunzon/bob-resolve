@@ -7,7 +7,8 @@ pairs to a human review queue. SPEC.md is the source of truth.
 
 ## Commands
 - `npm run verify`            all checks: ruff, mypy, pytest, eslint, tsc, vitest, next build. Must pass before any commit.
-- `cd engine && uv run bob-resolve version`   print the engine version (the only command so far).
+- `cd engine && uv run bob-resolve version`   print the engine version.
+- `cd engine && uv run bob-resolve fixtures derive --snapshot ../fixtures/agency-a-snapshot --out ../fixtures/agency-a-derived`   rebuild the derived clean enrollment side.
 - `cd engine && uv run pytest -q tests/unit/test_cli.py -k version`   run one test file or test.
 - `cd dashboard && npm run dev`   local dashboard.
 
