@@ -1,5 +1,5 @@
 {
-  "description": "Hand-written synthetic hard cases for SPEC section 9 examples 4 to 7, plus example 3 because the snapshot cannot produce it. Record ids: crm:<client_id> and enrollment:<1-based data row>.",
+  "description": "Hand-written synthetic hard cases for SPEC section 9 examples 4 to 7, plus example 3 because the snapshot cannot produce it, example 9 (GR-004) and example 10 (GR-005). Record ids: crm:<client_id> and enrollment:<1-based data row>.",
   "people": {
     "HC-001": ["crm:HC-001", "enrollment:1"],
     "HC-002": ["crm:HC-002", "enrollment:2"],
@@ -11,7 +11,9 @@
     "HC-008": ["crm:HC-008", "enrollment:8"],
     "HC-009": ["crm:HC-009", "enrollment:9"],
     "HC-010": ["crm:HC-010"],
-    "HC-011": ["crm:HC-011"]
+    "HC-011": ["crm:HC-011"],
+    "HC-012": ["crm:HC-012"],
+    "HC-013": ["crm:HC-013"]
   },
   "must_not_merge": [
     {"example": 4, "a": "crm:HC-001", "b": "crm:HC-002", "reason": "Twins: same last name, DOB, address and phone, but different first names and different MBIs."},
@@ -21,7 +23,8 @@
     {"example": 6, "a": "crm:HC-005", "b": "crm:HC-006", "reason": "Spouses who share a phone and an email: different first names and DOBs. Shared contact alone never merges."},
     {"example": 7, "a": "crm:HC-007", "b": "crm:HC-008", "reason": "Same MBI on both CRM rows, but DOBs are not within one edit and names differ: a pasted MBI, IDENTITY_CONFLICT."},
     {"example": 7, "a": "crm:HC-008", "b": "enrollment:7", "reason": "Nina's CRM row carries Carl's MBI; Carl's enrollment row must not pull her in."},
-    {"example": 9, "a": "crm:HC-010", "b": "crm:HC-011", "reason": "Two different people named Owen Marlowe with the same DOB and nothing else in common: different phone, email, address, and MBI. Ambiguous identity key (GR-004)."}
+    {"example": 9, "a": "crm:HC-010", "b": "crm:HC-011", "reason": "Two different people named Owen Marlowe with the same DOB and nothing else in common: different phone, email, address, and MBI. Ambiguous identity key (GR-004)."},
+    {"example": 10, "a": "crm:HC-012", "b": "crm:HC-013", "reason": "Opposite-sex twins Patrick and Patricia Quill: same last name, DOB, address and phone, different MBIs. First names are not nicknames of each other and not a one-letter typo (GR-005)."}
   ],
   "same_person": [
     {"example": 3, "a": "crm:HC-009", "b": "enrollment:9", "reason": "CRM nickname Dave, enrollment legal name David, same DOB and MBI."},
