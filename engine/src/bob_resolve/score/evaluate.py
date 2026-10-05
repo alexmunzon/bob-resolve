@@ -12,16 +12,15 @@ from bob_resolve.score.rules import (
     ScoredPair,
     ambiguous_keys,
     identity_key,
-    name_dob_unique_checker,
     score_pair,
 )
 from bob_resolve.truth import AnswerKey
 
 
 def withhold_shared_ids(records: Sequence[NormalizedRecord]) -> list[NormalizedRecord]:
-    """No shared ids mode: MBI is nulled on the records themselves, so no feature can see it.
-    Policy number never reaches a NormalizedRecord, so it needs no withholding."""
-    return [r.model_copy(update={"mbi": None}) for r in records]
+    """No shared ids mode: MBI and the linking policies are removed from the records
+    themselves, so no feature can see them."""
+    return [r.model_copy(update={"mbi": None, "policy_keys": None}) for r in records]
 
 
 def score_candidates(
@@ -29,7 +28,6 @@ def score_candidates(
 ) -> list[ScoredPair]:
     recs = records if shared_ids else withhold_shared_ids(records)
     by_id, ambiguous = {r.record_id: r for r in recs}, ambiguous_keys(recs, shared_ids)
-    unique = name_dob_unique_checker(recs, shared_ids)
 
     def on_ambiguous_key(a: NormalizedRecord, b: NormalizedRecord) -> bool:
         k = identity_key(a)
@@ -38,7 +36,7 @@ def score_candidates(
     out = []
     for a, b in pairs.select("a", "b").iter_rows():
         ra, rb = by_id[a], by_id[b]
-        out.append(score_pair(ra, rb, shared_ids, on_ambiguous_key(ra, rb), unique(ra, rb)))
+        out.append(score_pair(ra, rb, shared_ids, on_ambiguous_key(ra, rb)))
     return out
 
 

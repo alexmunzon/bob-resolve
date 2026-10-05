@@ -46,6 +46,7 @@ class Comparison(BaseModel):
     street: StreetLevel | None
     phone: Same | None
     email: Same | None
+    policy: Literal["same"] | None = None  # PR 10b: a linking policy; never a score weight
 
 
 def _same(a: str | None, b: str | None) -> Same | None:
@@ -113,4 +114,7 @@ def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -
         street=street,
         phone=_same(a.phone, b.phone),
         email=_same(a.email, b.email),
+        policy="same"
+        if shared_ids and (a.policy_keys or set()) & (b.policy_keys or set())
+        else None,
     )

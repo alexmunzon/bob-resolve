@@ -34,12 +34,12 @@ describe("Overview", () => {
 
   it("labels every accuracy number as synthetic, with the side and the shared-ids mode", async () => {
     await show();
-    for (const name of ["Precision of auto-merges", "Recall after review", "Blocking recall"]) {
+    for (const [name, value] of [["Precision of auto-merges", "100.0%"], ["Recall after review", "99.6%"], ["Blocking recall", "100.0%"]]) {
       const group = tile(name);
-      expect(group.getByText("100.0%")).toBeInTheDocument();
+      expect(group.getByText(value)).toBeInTheDocument();
       expect(group.getByText("Meets target")).toBeInTheDocument();
       expect(
-        group.getByText(/Enrollment side derived from the answer key, shared ids off \(MBI withheld\)\. Measured on synthetic data\./),
+        group.getByText(/Enrollment side derived from the answer key, shared ids on\. Measured on synthetic data\./),
       ).toBeInTheDocument();
     }
     expect(tile("Precision of auto-merges").getByText(/Target at least 99\.0%/)).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("Overview", () => {
   it("shows merges by tier, with Jev, LLM, and human review off or zero and why", async () => {
     await show();
     const tiers = panel(/Merges by tier/);
-    expect(tiers.getByText("2,139")).toBeInTheDocument();
+    expect(tiers.getByText("2,159")).toBeInTheDocument();
     expect(tiers.getAllByText("Off")).toHaveLength(2);
     expect(tiers.getByText(/needs approval each time/)).toBeInTheDocument();
     expect(tiers.getByText(/Anthropic key and a spend cap/)).toBeInTheDocument();
@@ -57,12 +57,12 @@ describe("Overview", () => {
 
   it("splits the review queue by severity and by suggestion, in words", async () => {
     await show();
-    const q = panel(/Review queue: 58 items/);
+    const q = panel(/Review queue: 19 items/);
     expect(q.getByText("High")).toBeInTheDocument();
     expect(q.getByText("Medium")).toBeInTheDocument();
-    expect(q.getByText("Suggests same person").nextSibling).toHaveTextContent("28");
-    expect(q.getByText("Suggests different people").nextSibling).toHaveTextContent("23");
-    expect(q.getByText("Suggests unsure").nextSibling).toHaveTextContent("7");
+    expect(q.getByText("Suggests same person").nextSibling).toHaveTextContent("0");
+    expect(q.getByText("Suggests different people").nextSibling).toHaveTextContent("10");
+    expect(q.getByText("Suggests unsure").nextSibling).toHaveTextContent("9");
   });
 
   it("shows $0 cost with Jev and the LLM off, and why there is no run time", async () => {

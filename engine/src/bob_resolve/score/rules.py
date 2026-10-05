@@ -6,7 +6,7 @@ auto-match; a pair they stop goes to the gray zone with the rule id recorded on 
 
 import math
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from itertools import combinations
 from typing import Literal
 
@@ -16,12 +16,12 @@ from bob_resolve.config import (
     DOB_TRANSPOSITION_MAX_YEARS,
     GRAY_SAME_PERSON_MIN,
     INDEPENDENT_EVIDENCE_LEVELS,
+    OWN_RECORD_TIE_FIELDS,
     SCORE_BIAS,
     SCORE_HIGH,
     SCORE_LOW,
     SCORE_WEIGHTS,
 )
-from bob_resolve.normalize.names import canonical_names
 from bob_resolve.normalize.record import NormalizedRecord
 from bob_resolve.score.compare import Comparison, compare
 
@@ -34,19 +34,20 @@ GUARD_RAILS: dict[RuleId, str] = {
     "IDENTITY_CONFLICT, never auto-matches.",
     "GR-003": "Shared phone or email alone (names and DOB not compatible) never auto-matches.",
     "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
-    "and some holder conflicts with another, so no pair on that key auto-matches.",
+    "and some holder conflicts with another, so no pair on that key auto-matches. Conflicts "
+    "between the pair's own records (tied by MBI, phone, email, or street) do not count.",
     "GR-005": "First names incompatible: not equal, not nicknames or an initial, and more than "
     "one typo apart (Patrick and Patricia), so the pair never auto-matches. Two known formal "
-    "names (Mario and Maria) or a name under five letters is never a typo.",
+    "names (Mario and Maria), a name under five letters, or a changed ending (Andrew and "
+    "Andrea) is never a typo.",
     "GR-006": "Birth year moved by more than one year through a digit transposition, with no "
     "MBI, phone, email, or street agreeing: never auto-matches.",
-    "GR-007": "Name and DOB only, not unique or location conflict: the pair agrees on nothing "
-    "else and its name plus DOB is held by another untied record, or ZIP or state differs.",
+    "GR-007": "Name and DOB only: the pair agrees on nothing else (no MBI with shared ids, "
+    "phone, email, street, or linking policy), so it never auto-matches.",
 }
 # Rails that only stop an auto-match with an honest "unsure": the records may well be one person.
 _UNSURE_RAILS: frozenset[RuleId] = frozenset({"GR-006", "GR-007"})
 IdentityKey = tuple[str, str, str]
-NameDobKey = tuple[str, str]
 _CLOSE_DOB = frozenset({"exact", "transposition", "month_day_swap", "one_edit"})
 
 
@@ -74,7 +75,7 @@ def weighted_score(c: Comparison) -> float:
 
 
 def independent_evidence(c: Comparison) -> bool:
-    """True when MBI, phone, email, or street agrees (INDEPENDENT_EVIDENCE_LEVELS)."""
+    """True when MBI, phone, email, street, or a linking policy agrees."""
     return any(getattr(c, f) in levels for f, levels in INDEPENDENT_EVIDENCE_LEVELS.items())
 
 
@@ -85,15 +86,7 @@ def name_dob_only(c: Comparison) -> bool:
     return agree and not independent_evidence(c)
 
 
-def name_dob_only_guard(c: Comparison, name_dob_unique: bool) -> bool:
-    """GR-007, the one place the "name plus DOB as the only evidence" rule lives (Review 2, F3).
-    Such a pair may auto-match only when its name plus DOB is held by one person in the whole
-    book (`name_dob_unique`, see name_dob_unique_pairs) and ZIP5 and state do not disagree."""
-    location_conflict = c.zip5 == "different" or c.state == "different"
-    return name_dob_only(c) and (not name_dob_unique or location_conflict)
-
-
-def guard_rails(c: Comparison, name_dob_unique: bool = True) -> tuple[RuleId, ...]:
+def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
     hits: list[RuleId] = []
     if c.suffix == "different":
         hits.append("GR-001")
@@ -112,7 +105,7 @@ def guard_rails(c: Comparison, name_dob_unique: bool = True) -> tuple[RuleId, ..
     far_year = (c.dob_years_apart or 0) > DOB_TRANSPOSITION_MAX_YEARS
     if c.dob == "transposition" and far_year and not independent_evidence(c):
         hits.append("GR-006")
-    if name_dob_only_guard(c, name_dob_unique):
+    if name_dob_only(c):  # GR-007 (Alex, PR 10b): never auto-merges, whatever the book holds
         hits.append("GR-007")
     return tuple(hits)
 
@@ -134,70 +127,48 @@ def _conflict(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool) -> boo
     return all(x and y and x != y for x, y in contact)
 
 
+def _tied(x: NormalizedRecord, y: NormalizedRecord, shared_ids: bool) -> bool:
+    """x and y are one person's records: an exact MBI (ids on), phone, email, or street."""
+    return any(
+        (f != "mbi" or shared_ids) and getattr(x, f) and getattr(x, f) == getattr(y, f)
+        for f in OWN_RECORD_TIE_FIELDS
+    )
+
+
+def _tie_groups(rs: Sequence[NormalizedRecord], shared_ids: bool) -> list[int]:
+    """Group label per record: records joined by a chain of ties are one person's records."""
+    group = list(range(len(rs)))
+
+    def root(i: int) -> int:
+        while group[i] != i:
+            i = group[i]
+        return i
+
+    for i, j in combinations(range(len(rs)), 2):
+        if _tied(rs[i], rs[j], shared_ids):
+            group[root(i)] = root(j)
+    return [root(i) for i in range(len(rs))]
+
+
 def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set[IdentityKey]:
-    """GR-004: identity keys held by two or more records where any two holders conflict."""
+    """GR-004: identity keys held by two or more records where two holders conflict. Two
+    holders tied together (directly or through a chain of ties) are one person's own records,
+    so their conflict does not count (PR 10b): a person who moved is not ambiguous."""
     holders: dict[IdentityKey, list[NormalizedRecord]] = defaultdict(list)
     for r in records:
         if (k := identity_key(r)) is not None:
             holders[k].append(r)
-    return {
-        k
-        for k, rs in holders.items()
-        if any(_conflict(a, b, shared_ids) for a, b in combinations(rs, 2))
-    }
-
-
-def _holder_index(records: Sequence[NormalizedRecord]) -> dict[NameDobKey, list[NormalizedRecord]]:
-    out: dict[NameDobKey, list[NormalizedRecord]] = defaultdict(list)
-    for r in records:
-        if r.last_name and r.dob_key and r.first_name:
-            out[(r.last_name, r.dob_key)].append(r)
+    out = set()
+    for k, rs in holders.items():
+        if len(rs) < 2:
+            continue
+        g = _tie_groups(rs, shared_ids)
+        if any(
+            g[i] != g[j] and _conflict(rs[i], rs[j], shared_ids)
+            for i, j in combinations(range(len(rs)), 2)
+        ):
+            out.add(k)
     return out
-
-
-_DISAGREE: dict[str, str] = {
-    "mbi": "different",
-    "phone": "different",
-    "email": "different",
-    "street": "different",
-    "zip5": "different",
-    "state": "different",
-    "suffix": "different",
-}
-
-
-def _tied(o: NormalizedRecord, r: NormalizedRecord, shared_ids: bool) -> bool:
-    """The pair's own evidence ties holder `o` to pair record `r` when some independent field
-    agrees, or when `o` disagrees with `r` on nothing (no different MBI, phone, email, street,
-    ZIP5, state, or suffix): it is the same name plus DOB with nothing pointing elsewhere."""
-    c = compare(o, r, shared_ids)
-    if independent_evidence(c):
-        return True
-    return not any(getattr(c, f) == level for f, level in _DISAGREE.items())
-
-
-def name_dob_unique_checker(
-    records: Sequence[NormalizedRecord], shared_ids: bool
-) -> Callable[[NormalizedRecord, NormalizedRecord], bool]:
-    """GR-007 (a): judged over the whole book, never the answer key. A pair's name plus DOB is
-    unique when every other record holding it (same last name and DOB, a first name sharing a
-    formal name with either side) is tied to both records of the pair (see _tied). One James
-    Smith in another ZIP, or with another phone, makes the key not unique."""
-    index = _holder_index(records)
-
-    def unique(a: NormalizedRecord, b: NormalizedRecord) -> bool:
-        names = canonical_names(a.first_name) | canonical_names(b.first_name)
-        keys = {(r.last_name, r.dob_key) for r in (a, b) if r.last_name and r.dob_key}
-        others = {
-            o.record_id: o
-            for k in keys
-            for o in index.get(k, [])
-            if o.record_id not in (a.record_id, b.record_id)
-            and canonical_names(o.first_name) & names
-        }
-        return all(_tied(o, a, shared_ids) and _tied(o, b, shared_ids) for o in others.values())
-
-    return unique
 
 
 def decide(score: float, rails: tuple[RuleId, ...]) -> tuple[Decision, Suggestion | None]:
@@ -221,12 +192,10 @@ def score_pair(
     b: NormalizedRecord,
     shared_ids: bool = True,
     ambiguous_key: bool = False,
-    name_dob_unique: bool = True,
 ) -> ScoredPair:
-    """`ambiguous_key` is True when both records hold one GR-004 key (see ambiguous_keys);
-    `name_dob_unique` is the GR-007 whole-book check (see name_dob_unique_checker)."""
+    """`ambiguous_key` is True when both records hold one GR-004 key (see ambiguous_keys)."""
     c = compare(a, b, shared_ids)
-    rails = guard_rails(c, name_dob_unique) + (("GR-004",) if ambiguous_key else ())
+    rails = guard_rails(c) + (("GR-004",) if ambiguous_key else ())
     s = weighted_score(c)
     decision, suggestion = decide(s, rails)
     if suggestion == "same_person" and c.first not in ("equal", "nickname", "close"):

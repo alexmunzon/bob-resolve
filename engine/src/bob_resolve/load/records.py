@@ -40,4 +40,7 @@ class PersonRecord(BaseModel):
     state: str | None = None
     zip: str | None = None
     household_id: str | None = None
+    # PR 10b: the policies that link this record ("policy:<id>", "member:<carrier>:<id>"), from
+    # the agency's policies.csv. A shared id: withheld in "no shared ids" mode.
+    policy_keys: tuple[str, ...] = ()
     lineage: Lineage

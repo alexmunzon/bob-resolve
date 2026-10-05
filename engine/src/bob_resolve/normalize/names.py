@@ -13,6 +13,7 @@ from bob_resolve.config import (
     FIRST_NAME_TYPO_MIN_LENGTH,
     FORMAL_GIVEN_NAMES,
     GENERATIONAL_SUFFIXES,
+    LOOK_ALIKE_FINAL_LETTERS,
 )
 
 NICKNAMES_CSV = Path(__file__).resolve().parents[1] / "data" / "nicknames.csv"
@@ -96,11 +97,15 @@ def formal_given_names() -> frozenset[str]:
 def first_name_typo(a: str | None, b: str | None) -> bool:
     """True when two different, incompatible first names may be one name mistyped: at most
     FIRST_NAME_TYPO_MAX_EDITS Damerau-Levenshtein edits, both at least
-    FIRST_NAME_TYPO_MIN_LENGTH letters, and not two known formal names (Mario and Maria)."""
+    FIRST_NAME_TYPO_MIN_LENGTH letters, not two known formal names (Mario and Maria), and the
+    edit does not change the ending (PR 10b: Andrew and Andrea, Christian and Christina)."""
     na, nb = normalize_name(a), normalize_name(b)
     if na is None or nb is None:
         return False
     if jellyfish.damerau_levenshtein_distance(na, nb) > FIRST_NAME_TYPO_MAX_EDITS:
+        return False
+    # Different last letters means the one edit touched the end of the name.
+    if na[-1] != nb[-1] and {na[-1], nb[-1]} & LOOK_ALIKE_FINAL_LETTERS:
         return False
     if min(len(na), len(nb)) < FIRST_NAME_TYPO_MIN_LENGTH:
         return False

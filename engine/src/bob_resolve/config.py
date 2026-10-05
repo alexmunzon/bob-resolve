@@ -138,8 +138,17 @@ PUBLIC_FOLDER_NAMES: Final[frozenset[str]] = frozenset({"public"})
 FORMAL_GIVEN_NAMES: Final[frozenset[str]] = frozenset(
     {"mario", "maria", "dan", "dana", "mary", "mark", "jon", "jan", "eric", "erica", "paul",
      "paula", "carl", "carla", "carol", "dean", "diane", "denis", "denise", "louise", "gene",
-     "jane", "june", "joan", "jean", "julian", "julia", "julie", "anna", "nina", "tina", "gina"}
+     "jane", "june", "joan", "jean", "julian", "julia", "julie", "anna", "nina", "tina", "gina",
+     # PR 10b: distinct given names one edit apart away from the end, written by hand
+     "francis", "frances", "jesse", "jessie", "marion", "marian", "jason", "mason", "larry",
+     "harry", "barry", "terry", "jerry", "kerry", "allen", "ellen", "allan", "kevin", "devin",
+     "holly", "molly", "polly", "dolly", "cindy", "mindy", "lance", "vance", "bruce", "bryce",
+     "karen", "caren", "helen", "helena", "brenda", "brenna"}
 )  # fmt: skip
+# PR 10b (GR-005, orchestrator): an edit that touches the last letter, where either name ends in
+# one of these letters, is a different name, not a typo (Andrew and Andrea, Dan and Dana, Louis
+# and Louise, Christian and Christina): opposite-sex look-alikes often differ only at the end.
+LOOK_ALIKE_FINAL_LETTERS: Final[frozenset[str]] = frozenset("aeiouy")
 FIRST_NAME_TYPO_MIN_LENGTH: Final[int] = 5
 # F2: a DOB is "close" only by an adjacent-digit transposition, a month-day swap, or one changed
 # digit in the month or day (YYYYMMDD index 4 and up). A changed year digit is "far".
@@ -149,9 +158,16 @@ DOB_SUBSTITUTION_MIN_INDEX: Final[int] = 4
 DOB_TRANSPOSITION_MAX_YEARS: Final[int] = 1
 # Independent evidence: a field beyond name and DOB whose agreement ties two records together
 # (GR-006, GR-007). Only an exact street counts: a "close" street can be a neighbor's house.
+# PR 10b (Alex, GR-007): a linking policy (the same policy id or carrier member id) counts too.
+# Like MBI it is a shared id, so "no shared ids" mode withholds it (SPEC section 5).
 INDEPENDENT_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
     "mbi": frozenset({"same"}),
     "phone": frozenset({"same"}),
     "email": frozenset({"same"}),
     "street": frozenset({"same"}),
+    "policy": frozenset({"same"}),
 }
+# PR 10b (GR-004, orchestrator): a holder tied to a pair record by one of these exact fields is
+# that person's own record, so its conflicts with the pair's other own records are not ambiguity
+# (a person who moved). MBI ties only when shared ids are on.
+OWN_RECORD_TIE_FIELDS: Final[tuple[str, ...]] = ("mbi", "phone", "email", "address_line1")

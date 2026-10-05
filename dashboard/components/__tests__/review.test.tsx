@@ -42,9 +42,10 @@ describe("Review queue", () => {
     const card = screen.getByRole("listitem", { name: `Item 1: ${items[0].id}` });
     const row = (name: string) => within(card).getByRole("rowheader", { name }).closest("tr")!;
     expect(row("Last name")).toHaveTextContent("AgreeSame");
-    expect(row("Birth date")).toHaveTextContent("Disagree");
+    expect(row("Birth date")).toHaveTextContent("AgreeSame");
     expect(row("Phone")).toHaveTextContent("Missing");
-    expect(row("MBI (last 4 only)")).toHaveTextContent("Not compared: MBI withheld in this run");
+    expect(row("MBI (last 4 only)")).toHaveTextContent("Missing on at least one record");
+    expect(card).toHaveTextContent(/Name and birth date only/);
   });
 
   it("explains every rule id the engine can write", () => {
@@ -55,15 +56,15 @@ describe("Review queue", () => {
 
   it("filters by suggestion and by rule id, in the browser", async () => {
     const { items } = await show();
-    expect(shown()).toHaveLength(58);
+    expect(shown()).toHaveLength(19);
     fireEvent.change(screen.getByLabelText("Suggestion"), { target: { value: "different_people" } });
-    expect(shown()).toHaveLength(23);
+    expect(shown()).toHaveLength(10);
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "GR-005" } });
-    expect(shown()).toHaveLength(22);
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 22 of 58 items");
-    fireEvent.change(screen.getByLabelText("Suggestion"), { target: { value: "same_person" } });
+    expect(shown()).toHaveLength(9);
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 9 of 19 items");
+    fireEvent.change(screen.getByLabelText("Suggestion"), { target: { value: "unsure" } });
     expect(screen.queryAllByRole("listitem", { name: /^Item / })).toHaveLength(0);
-    expect(applyFilters(items, "", "SCORE-GRAY")).toHaveLength(35);
+    expect(applyFilters(items, "", "SCORE-GRAY")).toHaveLength(1);
   });
 
   it("explains the decisions file and the apply command, and writes nothing", async () => {

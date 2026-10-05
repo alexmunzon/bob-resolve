@@ -31,7 +31,7 @@ describe("Clusters", () => {
     const row = log.getByText("crm:C-00023 and crm:C-02011").closest("tr")!;
     expect(row).toHaveTextContent("Merged");
     expect(row).toHaveTextContent("Rules (automatic)");
-    expect(row).toHaveTextContent("0.9994");
+    expect(row).toHaveTextContent("1.0000");
     expect(row).toHaveTextContent("AUTO-MATCH-HIGH (Automatic match)");
   });
 
