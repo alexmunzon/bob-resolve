@@ -84,9 +84,11 @@ def _copy_roots(ground_truth: Path, client_ids: set[str]) -> dict[str, str]:
     return roots
 
 
-def build_snapshot_answer_key(snapshot_dir: Path) -> AnswerKey:
+def build_snapshot_answer_key(snapshot_dir: Path, enrollment_csv: Path | None = None) -> AnswerKey:
+    """Build the key. `enrollment_csv` swaps in another enrollment side with the same rows, such
+    as fixtures/agency-a-derived/enrollment_clean.csv; the default is the snapshot export."""
     crm = read_crm(snapshot_dir / "clients.csv")
-    enr = read_enrollment(snapshot_dir / "enrollment_export.csv")
+    enr = read_enrollment(enrollment_csv or snapshot_dir / "enrollment_export.csv")
     policies = pl.read_csv(snapshot_dir / "policies.csv", infer_schema=False)
     owners = policies.group_by("policy_id").agg(pl.col("client_id").unique())
     owner_of = dict(zip(owners["policy_id"], owners["client_id"].to_list(), strict=True))

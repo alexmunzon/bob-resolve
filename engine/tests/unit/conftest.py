@@ -13,3 +13,8 @@ def snapshot_dir() -> Path:
 @pytest.fixture
 def hard_cases_dir() -> Path:
     return FIXTURES / "hard-cases"
+
+
+@pytest.fixture
+def derived_dir() -> Path:
+    return FIXTURES / "agency-a-derived"
