@@ -22,3 +22,10 @@ JEV_RECORD_CAP_USD: Final[float] = 0.50
 
 # Two-digit birth years pivot at 1930, as in agency-intake-kit (SPEC section 5).
 TWO_DIGIT_YEAR_PIVOT: Final[int] = 1930
+
+# PR 3
+# Generational suffixes split out of either name field into their own field, never dropped.
+GENERATIONAL_SUFFIXES: Final[frozenset[str]] = frozenset({"jr", "sr", "ii", "iii", "iv"})
+# A US phone is 10 digits; an 11-digit number starting with the country code 1 is trimmed.
+PHONE_DIGITS: Final[int] = 10
+US_COUNTRY_CODE: Final[str] = "1"
