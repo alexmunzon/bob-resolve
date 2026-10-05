@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const MUTED = "text-slate-600 dark:text-slate-400";
 const TH = "px-2 py-1.5 text-left font-medium whitespace-nowrap";
 const TD = "px-2 py-1.5 align-top";
+const PAGE_SIZE = 25;
 
 // Color is never the only signal: every status has an icon and a word.
 const STATUS: Record<Status, { word: string; icon: LucideIcon; color: string }> = {
@@ -92,21 +93,75 @@ function Select({ label, value, onChange, options }: {
   );
 }
 
-export function ReviewQueue({ items }: { items: ReviewItemView[] }) {
-  const [suggestion, setSuggestion] = useState("");
-  const [rule, setRule] = useState("");
+export function ReviewQueue({
+  items,
+  initialPage = 1,
+  initialSuggestion = "",
+  initialRule = "",
+}: {
+  items: ReviewItemView[];
+  initialPage?: number;
+  initialSuggestion?: string;
+  initialRule?: string;
+}) {
+  const [suggestion, setSuggestion] = useState(initialSuggestion);
+  const [rule, setRule] = useState(initialRule);
+  const [page, setPage] = useState(initialPage);
   const options = filterOptions(items);
   const shown = applyFilters(items, suggestion, rule);
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, page), pageCount);
+  const pageLinkStart = Math.max(1, Math.min(currentPage - 2, pageCount - 4));
+  const pageLinks = Array.from({ length: Math.min(5, pageCount) }, (_, i) => pageLinkStart + i);
+  const first = shown.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const last = Math.min(currentPage * PAGE_SIZE, shown.length);
+  const pageItems = shown.slice(first - 1, last);
+
+  function updateFilter(key: "suggestion" | "rule", value: string) {
+    if (key === "suggestion") setSuggestion(value);
+    else setRule(value);
+    setPage(1);
+    const params = new URLSearchParams(window.location.search);
+    if (value) params.set(key, value);
+    else params.delete(key);
+    params.set("page", "1");
+    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+  }
+
+  function pageHref(targetPage: number) {
+    const params = new URLSearchParams();
+    if (suggestion) params.set("suggestion", suggestion);
+    if (rule) params.set("rule", rule);
+    params.set("page", String(targetPage));
+    return `/review?${params.toString()}`;
+  }
+
   return (
     <section aria-label="Queue" className="space-y-3">
       <div className="flex flex-wrap items-end gap-4">
-        <Select label="Suggestion" value={suggestion} onChange={setSuggestion} options={options.suggestions} />
-        <Select label="Rule" value={rule} onChange={setRule} options={options.rules} />
-        <p role="status" className={cn("text-sm tabular-nums", MUTED)}>Showing {shown.length} of {items.length} items</p>
+        <Select label="Suggestion" value={suggestion} onChange={(value) => updateFilter("suggestion", value)} options={options.suggestions} />
+        <Select label="Rule" value={rule} onChange={(value) => updateFilter("rule", value)} options={options.rules} />
+        <p role="status" className={cn("text-sm tabular-nums", MUTED)}>
+          Showing {first}-{last} of {shown.length} filtered items ({items.length} total)
+        </p>
       </div>
       <ol className="space-y-3">
-        {shown.map((item) => <Item key={item.id} item={item} />)}
+        {pageItems.map((item) => <Item key={item.id} item={item} />)}
       </ol>
+      <nav aria-label="Review queue pages" className="flex items-center justify-between gap-4 text-sm">
+        {currentPage > 1
+          ? <a className="underline underline-offset-2" href={pageHref(currentPage - 1)}>Previous page</a>
+          : <span className={MUTED} aria-disabled="true">Previous page</span>}
+        <span className="flex items-center gap-3">
+          {pageLinks.map((number) => number === currentPage
+            ? <span key={number} aria-current="page" className="font-semibold tabular-nums">Page {number}</span>
+            : <a key={number} className="underline underline-offset-2 tabular-nums" href={pageHref(number)}>Page {number}</a>)}
+          <span className={cn("tabular-nums", MUTED)}>of {pageCount}</span>
+        </span>
+        {currentPage < pageCount
+          ? <a className="underline underline-offset-2" href={pageHref(currentPage + 1)}>Next page</a>
+          : <span className={MUTED} aria-disabled="true">Next page</span>}
+      </nav>
     </section>
   );
 }
