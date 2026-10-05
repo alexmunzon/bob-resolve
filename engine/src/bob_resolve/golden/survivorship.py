@@ -104,10 +104,14 @@ def build_golden(
     fields: dict[str, FieldSource] = {}
     namer = next((r for r in identity if all(_names(r)[:2])), None)
     for i, f in enumerate(("first_name", "last_name")):
+
+        def partial_name(r: PersonRecord, index: int = i) -> str | None:
+            return _names(r)[index]
+
         fields[f] = (
             take(namer, _names(namer)[i] or "", "authoritative_source")
             if namer
-            else FieldSource(value=None, rule="no_value")
+            else first(identity, partial_name, "authoritative_source")
         )
     fields["suffix"] = first(identity, lambda r: _names(r)[2], "authoritative_source")
     conflicts = False

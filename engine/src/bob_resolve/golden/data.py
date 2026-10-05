@@ -78,4 +78,4 @@ def resolve_side(
     )
     norm = [normalize_record(r) for r in records]
     scored = score_candidates(norm, candidate_pairs(norm, shared_ids), shared_ids)
-    return resolve(records, scored, recency, run_id=run_id, clock=clock)
+    return resolve(records, scored, recency, run_id=run_id, clock=clock, shared_ids=shared_ids)

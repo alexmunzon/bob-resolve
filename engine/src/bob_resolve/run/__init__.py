@@ -338,13 +338,36 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     final = [p.model_copy(update={"decision": "AUTO_MATCH"}) if (p.a, p.b) in forced else p
              for p in scored]  # fmt: skip
     res = resolve(records, final, recency, run_id=o.run_id, clock=lambda: o.now,
-                  review_pairs=forced)  # fmt: skip
+                  review_pairs=forced, shared_ids=o.shared_ids)  # fmt: skip
     lap("cluster_and_golden")
     skip = {d.item_id for d in parent.decisions} if parent else set()
     by_id = {r.record_id: r for r in records}
     owners = active_policy_owners(files, o.as_of)
     queue = build_queue(res, scored, by_id, {r.record_id: r for r in norm},
-                        owners, o.shared_ids, skip)  # fmt: skip
+                        owners, o.shared_ids)  # fmt: skip
+    if parent:
+        items = {item.item_id: item for item in queue}
+        for decision in parent.decisions:
+            item = items.get(decision.item_id)
+            if decision.decision == "different_people" and item is None:
+                raise RunRefused(
+                    f"Cannot reconstruct different_people constraint for {decision.item_id}."
+                )
+            if (
+                decision.decision == "different_people"
+                and item is not None
+                and item.already_one_person
+            ):
+                raise RunRefused(
+                    f"Contradictory different_people decision for {decision.item_id}; "
+                    "the records would remain in one person."
+                )
+    # Stored labels cannot resolve an authoritative field conflict or a cluster split.
+    queue = [
+        item
+        for item in queue
+        if item.item_id not in skip or item.kind in {"identity_conflict", "cluster_conflict"}
+    ]
     lap("review_queue")
     multi: MultiTruth | None = None
     if o.side == "hard-cases":
@@ -464,6 +487,9 @@ def execute(o: RunOptions, parent: Parent | None = None) -> Path:
     """Write into a temp folder, then rename into place, so a failed run leaves nothing behind
     and --overwrite keeps the old run until the new one is complete."""
     final = o.out / o.run_id
+    target, fixtures = final.resolve(), o.fixtures.resolve()
+    if target == fixtures or target in fixtures.parents or fixtures in target.parents:
+        raise RunRefused("run output overlaps input fixtures; choose a separate output folder")
     if not o.mask_mbi and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
         raise RunRefused(f"{o.out} is a public folder; pass --mask-mbi so no full MBI lands there.")
     if final.exists() and not o.overwrite:
@@ -530,9 +556,10 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     )
     earlier = old / "decisions.jsonl"
     carried = tuple(read_decisions(earlier)) if earlier.exists() else ()
+    active_labels = tuple({d.item_id: d for d in (*carried, *labels)}.values())
     kept_before = frozenset((a, b) for a, b in m.get("review_pairs", []))
     parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(),
-                    (*carried, *labels), kept_before | new, new)  # fmt: skip
+                    active_labels, kept_before | new, new)  # fmt: skip
     side: RunSide = m["args"]["enrollment"]
     opts = RunOptions(o.fixtures, side, m["args"]["shared_ids"], o.out, o.run_id,
                       date.fromisoformat(m["as_of"]), o.now, o.frozen_clock, o.overwrite,

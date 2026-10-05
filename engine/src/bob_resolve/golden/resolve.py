@@ -50,14 +50,22 @@ def resolve(
     run_id: str,
     clock: Callable[[], datetime],
     review_pairs: frozenset[tuple[str, str]] = frozenset(),
+    shared_ids: bool = True,
 ) -> Resolution:
     """A record with no name, DOB, or MBI is not a person: it is listed as unidentifiable.
     `review_pairs` are matches a human decided (PR 7): their lines and records carry tier
     "review" and rule REVIEW-DECISION instead of the rules arm."""
+    seen: set[str] = set()
+    for r in records:
+        if r.record_id in seen:
+            raise ValueError(f"Duplicate record_id: {r.record_id}")
+        seen.add(r.record_id)
     people_recs = [r for r in records if _identifiable(r)]
     ids = {r.record_id for r in people_recs}
     matches = [p for p in scored if p.decision == "AUTO_MATCH" and {p.a, p.b} <= ids]
-    clusters, kept, splits = split_on_conflict([normalize_record(r) for r in people_recs], matches)
+    clusters, kept, splits = split_on_conflict(
+        [normalize_record(r) for r in people_recs], matches, shared_ids=shared_ids
+    )
     by_id = {r.record_id: r for r in people_recs}
     people, review, log = [], [], []
 
