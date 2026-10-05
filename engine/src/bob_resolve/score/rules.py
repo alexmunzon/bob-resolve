@@ -24,7 +24,7 @@ from bob_resolve.score.compare import Comparison, compare
 
 Decision = Literal["AUTO_MATCH", "GRAY", "AUTO_REJECT"]
 Suggestion = Literal["same_person", "different_people", "unsure"]
-RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004"]
+RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004", "GR-005"]
 GUARD_RAILS: dict[RuleId, str] = {
     "GR-001": "Different generational suffix (Jr and Sr) never auto-matches.",
     "GR-002": "Shared MBI with a DOB neither within one edit nor a month-day swap: "
@@ -32,6 +32,8 @@ GUARD_RAILS: dict[RuleId, str] = {
     "GR-003": "Shared phone or email alone (names and DOB not compatible) never auto-matches.",
     "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
     "and some holder conflicts with another, so no pair on that key auto-matches.",
+    "GR-005": "First names incompatible: not equal, not nicknames or an initial, and more than "
+    "one typo apart (Patrick and Patricia), so the pair never auto-matches.",
 }
 IdentityKey = tuple[str, str, str]
 _CLOSE_DOB = frozenset({"exact", "transposition", "month_day_swap", "one_edit"})
@@ -74,6 +76,8 @@ def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
     shared_contact = c.phone == "same" or c.email == "same"
     if shared_contact and c.mbi != "same" and not identity_ok:
         hits.append("GR-003")
+    if c.first in ("close", "far") and not c.first_typo:
+        hits.append("GR-005")  # a missing first name (None) never fires it
     return tuple(hits)
 
 

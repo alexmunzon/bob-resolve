@@ -107,6 +107,13 @@ CLUSTER_CONFLICT_LEVELS: Final[dict[str, frozenset[str]]] = {
 # no guard rail). Split lines carry CLUSTER_CONFLICT.
 AUTO_MATCH_RULE_ID: Final[str] = "AUTO-MATCH-HIGH"
 
+# GR-005
+# First names incompatible (docs/gr-005-notes.md). A pair never auto-matches unless its first
+# names are compatible (equal, a shared formal name, or an initial), within this many
+# Damerau-Levenshtein edits (a typo), or one is missing. Jaro-Winkler alone rates Patrick and
+# Patricia close; opposite-sex twins would otherwise auto-merge.
+FIRST_NAME_TYPO_MAX_EDITS: Final[int] = 1
+
 # PR 7
 # Run command. Jev and the LLM arm are not built yet, so a run records them as off with zero
 # calls and zero cost, and every gray pair goes to the review queue (SPEC example 8).

@@ -252,3 +252,38 @@ def test_gray_same_person_suggestion_needs_compatible_first_names(
     for p in scored:
         if p.suggestion == "same_person":
             assert p.comparison.first in ("equal", "nickname", "close"), p
+
+
+@pytest.mark.parametrize("ids", [True, False])
+def test_gr_005_patrick_and_patricia_twins_never_auto_match(
+    hard: dict[str, NormalizedRecord], ids: bool
+) -> None:
+    """Example 10: same surname, DOB, address, phone; different MBIs; incompatible first names."""
+    p = _run_hard(hard, ids)[("crm:HC-012", "crm:HC-013")]
+    assert p.comparison.first == "close"  # Jaro-Winkler alone rates them near
+    assert p.decision == "GRAY" and p.suggestion == "different_people"
+    assert "GR-005" in p.guard_rails
+
+
+@pytest.mark.parametrize("ids", [True, False])
+def test_gr_005_lets_a_one_letter_typo_and_a_nickname_auto_match(
+    hard: dict[str, NormalizedRecord], ids: bool
+) -> None:
+    pat = hard["crm:HC-012"]
+    for typo in ("Patrik", "Patirck", "Patricks"):  # delete, adjacent swap, insert: one edit
+        copy = pat.model_copy(update={"record_id": "crm:HC-012-typo", "first_name": typo.lower()})
+        p = score_pair(pat, copy, shared_ids=ids)
+        assert p.decision == "AUTO_MATCH" and "GR-005" not in p.guard_rails, typo
+    dave = _score(hard, "crm:HC-009", "enrollment:9", ids)  # Dave and David: nickname
+    assert dave.decision == "AUTO_MATCH" and dave.guard_rails == ()
+    blank = pat.model_copy(update={"record_id": "crm:HC-012-blank", "first_name": None})
+    assert "GR-005" not in score_pair(pat, blank, shared_ids=ids).guard_rails
+
+
+def test_gr_005_never_fires_on_a_true_pair(report: tuple[ScoreReport, list[ScoredPair]]) -> None:
+    rep, scored = report
+    assert "GR-005" in rep.guard_rail_hits
+    missed = set(rep.missed)  # a true pair GR-005 stopped would be missed (not same person)
+    for p in scored:
+        if "GR-005" in p.guard_rails:
+            assert (p.a, p.b) not in missed

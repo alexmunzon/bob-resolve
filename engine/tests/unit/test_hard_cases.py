@@ -26,7 +26,8 @@ def test_hard_cases_load_and_cover_examples_4_to_7(hard_cases_dir: Path) -> None
         6,
         7,
         9,
-    }  # 9: same name and DOB, PR 5 GR-004
+        10,
+    }  # 9: same name and DOB, PR 5 GR-004; 10: Patrick and Patricia twins, GR-005
     for m in key.must_not_merge:
         assert key.person_of[m.a] != key.person_of[m.b], m.reason
     assert ("crm:HC-009", "enrollment:9") in key.pairs  # example 3, Dave and David

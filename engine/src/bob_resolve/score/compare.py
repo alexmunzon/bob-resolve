@@ -5,7 +5,11 @@ from typing import Literal
 import jellyfish
 from pydantic import BaseModel, ConfigDict
 
-from bob_resolve.config import NAME_CLOSE_JARO_WINKLER, STREET_CLOSE_JARO_WINKLER
+from bob_resolve.config import (
+    FIRST_NAME_TYPO_MAX_EDITS,
+    NAME_CLOSE_JARO_WINKLER,
+    STREET_CLOSE_JARO_WINKLER,
+)
 from bob_resolve.normalize.dob import dob_edit_distance, is_month_day_swap, is_transposition
 from bob_resolve.normalize.names import names_compatible
 from bob_resolve.normalize.record import NormalizedRecord
@@ -25,6 +29,7 @@ class Comparison(BaseModel):
 
     first_jw: float | None
     first: FirstLevel | None
+    first_typo: bool | None = None  # within FIRST_NAME_TYPO_MAX_EDITS Damerau-Levenshtein edits
     last_jw: float | None
     last_metaphone_equal: bool | None
     last: LastLevel | None
@@ -60,11 +65,14 @@ def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -
     last_jw: float | None = None
     metaphone_eq: bool | None = None
     first: FirstLevel | None = None
+    first_typo: bool | None = None
     last: LastLevel | None = None
     suffix: SuffixLevel | None = None
     street: StreetLevel | None = None
     if a.first_name and b.first_name:
         first_jw = jellyfish.jaro_winkler_similarity(a.first_name, b.first_name)
+        edits = jellyfish.damerau_levenshtein_distance(a.first_name, b.first_name)
+        first_typo = edits <= FIRST_NAME_TYPO_MAX_EDITS
         if a.first_name == b.first_name:
             first = "equal"
         elif names_compatible(a.first_name, b.first_name):
@@ -87,6 +95,7 @@ def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -
     return Comparison(
         first_jw=first_jw,
         first=first,
+        first_typo=first_typo,
         last_jw=last_jw,
         last_metaphone_equal=metaphone_eq,
         last=last,
