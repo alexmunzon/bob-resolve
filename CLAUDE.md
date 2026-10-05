@@ -16,8 +16,10 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - Synthetic data only. Never a real name list, real contacts, or real client files. No SSN, ever.
 - A false merge is worse than a missed match. Auto-merge only when very sure; doubtful pairs go to review.
 - Guard rails override the score and are never overridden by Jev or an LLM: different generational
-  suffix is never auto-merged; a shared MBI with DOBs more than one edit apart is never auto-merged;
-  shared phone or email alone never merges.
+  suffix is never auto-merged (GR-001); a shared MBI with DOBs more than one edit apart is never
+  auto-merged (GR-002); shared phone or email alone never merges (GR-003); an ambiguous identity key
+  never auto-merges (GR-004); first names that are not compatible and more than one typo apart
+  (Patrick and Patricia) never auto-merge (GR-005).
 - Two authoritative sources that disagree on DOB or MBI are never guessed: review with IDENTITY_CONFLICT.
 - The merge log is append-only JSONL. Never rewrite a line; a correction is a new line.
 - JEV_MODE defaults to replay. The LLM arm defaults off. live and record spend money: no agent sets them;
