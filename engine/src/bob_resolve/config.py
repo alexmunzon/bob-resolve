@@ -29,3 +29,8 @@ GENERATIONAL_SUFFIXES: Final[frozenset[str]] = frozenset({"jr", "sr", "ii", "iii
 # A US phone is 10 digits; an 11-digit number starting with the country code 1 is trimmed.
 PHONE_DIGITS: Final[int] = 10
 US_COUNTRY_CODE: Final[str] = "1"
+
+# PR 4
+# Blocking uses MBI only when shared ids are allowed. "No shared ids" mode (SPEC section 5)
+# withholds MBI and policy number from blocking and scoring, because they match across files.
+SHARED_IDS_DEFAULT: Final[bool] = True
