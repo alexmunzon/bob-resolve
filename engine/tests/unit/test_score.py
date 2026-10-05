@@ -214,3 +214,41 @@ def test_real_unresolved_rows_never_auto_match() -> None:
     assert not any(
         p.a in unresolved or p.b in unresolved for p in scored if p.decision == "AUTO_MATCH"
     )
+
+
+def _run_hard(hard: dict[str, NormalizedRecord], ids: bool) -> dict[tuple[str, str], ScoredPair]:
+    recs = list(hard.values())
+    return {(p.a, p.b): p for p in score_candidates(recs, candidate_pairs(recs, ids), ids)}
+
+
+@pytest.mark.parametrize("ids", [True, False])
+def test_gr_004_same_name_and_dob_with_nothing_in_common_never_auto_match(
+    hard: dict[str, NormalizedRecord], ids: bool
+) -> None:
+    run = _run_hard(hard, ids)
+    p = run[("crm:HC-010", "crm:HC-011")]
+    assert p.decision == "GRAY" and p.suggestion == "unsure" and "GR-004" in p.guard_rails
+    # A true pair with the same name and DOB and no conflicting holder still auto-merges.
+    dave = run[("crm:HC-009", "enrollment:9")]
+    assert dave.decision == "AUTO_MATCH" and dave.guard_rails == ()
+
+
+def test_gr_004_stops_every_pair_on_a_conflicted_key(hard: dict[str, NormalizedRecord]) -> None:
+    """A copy of HC-010 agrees with it fully, but HC-011 holds the same key and conflicts."""
+    copy = hard["crm:HC-010"].model_copy(update={"record_id": "crm:HC-010-copy"})
+    recs = [hard["crm:HC-010"], hard["crm:HC-011"], copy]
+    scored = score_candidates(recs, candidate_pairs(recs, False), False)
+    assert len(scored) == 3
+    assert all(p.decision == "GRAY" and "GR-004" in p.guard_rails for p in scored)
+    alone = score_candidates([recs[0], copy], candidate_pairs([recs[0], copy], False), False)
+    assert alone[0].decision == "AUTO_MATCH"
+
+
+def test_gray_same_person_suggestion_needs_compatible_first_names(
+    report: tuple[ScoreReport, list[ScoredPair]],
+) -> None:
+    """C-00755 Matthew and C-00756 Shannon Hunt share surname, DOB, and address: not one person."""
+    _, scored = report
+    for p in scored:
+        if p.suggestion == "same_person":
+            assert p.comparison.first in ("equal", "nickname", "close"), p

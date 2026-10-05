@@ -7,7 +7,13 @@ import polars as pl
 from pydantic import BaseModel, ConfigDict
 
 from bob_resolve.normalize.record import NormalizedRecord
-from bob_resolve.score.rules import GUARD_RAILS, ScoredPair, score_pair
+from bob_resolve.score.rules import (
+    GUARD_RAILS,
+    ScoredPair,
+    ambiguous_keys,
+    identity_key,
+    score_pair,
+)
 from bob_resolve.truth import AnswerKey
 
 
@@ -20,9 +26,16 @@ def withhold_shared_ids(records: Sequence[NormalizedRecord]) -> list[NormalizedR
 def score_candidates(
     records: Sequence[NormalizedRecord], pairs: pl.DataFrame, shared_ids: bool
 ) -> list[ScoredPair]:
-    by_id = {r.record_id: r for r in (records if shared_ids else withhold_shared_ids(records))}
+    recs = records if shared_ids else withhold_shared_ids(records)
+    by_id, ambiguous = {r.record_id: r for r in recs}, ambiguous_keys(recs, shared_ids)
+
+    def on_ambiguous_key(a: NormalizedRecord, b: NormalizedRecord) -> bool:
+        k = identity_key(a)
+        return k is not None and k == identity_key(b) and k in ambiguous
+
     return [
-        score_pair(by_id[a], by_id[b], shared_ids) for a, b in pairs.select("a", "b").iter_rows()
+        score_pair(by_id[a], by_id[b], shared_ids, on_ambiguous_key(by_id[a], by_id[b]))
+        for a, b in pairs.select("a", "b").iter_rows()
     ]
 
 

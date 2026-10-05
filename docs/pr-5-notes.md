@@ -13,7 +13,7 @@ Measured on synthetic data.
 | derived from the answer key | on | 1.0000 | 2,167 | 16 | 1,271 | 1.0000 |
 | derived from the answer key | off | 1.0000 | 2,139 | 85 | 1,230 | 1.0000 |
 
-Guard rail hits (every side and mode): GR-001 0, GR-002 0, GR-003 273 (271 already below the
+Guard rail hits (every side and mode): GR-001 0, GR-002 0, GR-004 0, GR-003 273 (271 already below the
 low line, 2 stopped in gray; none on a true pair). GR-001 and GR-002 fire only on the hard cases.
 On the derived side without shared ids, the 18 transposed and 10 month-day swapped birth dates
 land in gray with "same person" (score 0.989, just under the high line), not auto-merged.
@@ -41,6 +41,16 @@ land in gray with "same person" (score 0.989, just under the high line), not aut
 - GR-002: shared MBI with a DOB that is neither within one edit nor a month-day swap: always
   gray with reason IDENTITY_CONFLICT, whatever the score (SPEC: never guess).
 - GR-003: shared phone or email, no shared MBI, and names plus DOB not all compatible.
+- GR-004 (ambiguous identity key, orchestrator decision before merge). The identity key is
+  (canonical first name, normalized last name, DOB); a record missing any part has no key. A key
+  is ambiguous when two or more records hold it and at least one pair of holders conflicts:
+  different MBI (shared ids on, both present), different suffix (both present), or a different
+  non-blank phone AND street address AND email (all three present on both and all three differ).
+  Then every scored pair whose two records both hold that key goes to gray, suggestion "unsure",
+  rule id GR-004, whatever the score. Checked once per run over all records, not per pair.
+  Snapshot and derived: no key is held by two different people, so 0 hits and no change in the
+  table. Hard case example 9 (HC-010 and HC-011, two Owen Marlowes, same DOB, nothing else in
+  common) tests it; Dave and David (same key, no conflicting holder) still auto-merge.
 - GR-001 and GR-003 only stop an auto-match. A pair they hit that scores below the low line is
   still rejected (rejecting never merges anyone); the rule id is still recorded.
 
@@ -59,10 +69,17 @@ land in gray with "same person" (score 0.989, just under the high line), not aut
   enrollment rows disagree on MBI. With shared ids that pair is gray ("unsure"), not found; the
   reviewer decides. Without shared ids it auto-merges. Not tuned around.
 
+## C-00755 and C-00756 (fixed as a rule gap, no weight change)
+Matthew Hunt and Shannon Hunt: same surname, same DOB (1949-11-11), same street and ZIP, same
+household H-00508; different first names, phones, and MBIs, and only Shannon has an email. A
+couple with one birthday. They were gray with "same person" with ids off (score 0.78). GR-003
+misses them (no shared phone or email) and GR-004 misses them (different first names, so
+different keys). The gap was the suggestion rule: it now never suggests "same person" when the
+first names are "far" (not equal, nickname, or Jaro-Winkler close); such pairs say "unsure".
+No true pair has a far first name, so recall is unchanged. Tested on all four combinations.
+
 ## Risks
 - Perfect numbers reflect easy synthetic data: MBIs match across files and every true pair has
   an exact or near DOB. Two different people with the same first name, last name, and DOB and
   no MBI would auto-merge. Phase 2 data must test this.
-- One non-true pair (C-00755, C-00756: same surname, DOB, and address, different first names)
-  is gray with "same person" in no shared ids mode. It does not affect auto-merge precision but
-  would mislead a reviewer; a stronger first-name penalty is a candidate fix after phase 2.
+- Not yet tested on real-world collisions: GR-004 has 0 hits on the fixtures, only the hard cases.
