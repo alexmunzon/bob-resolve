@@ -35,7 +35,8 @@ class NormalizedRecord(BaseModel):
     address_line1: str | None
     zip5: str | None
     zip3: str | None
-    state: str | None = None  # two letters, uppercase; GR-007 location check (Review 2)
+    state: str | None = None  # two letters, uppercase (Review 2)
+    policy_keys: frozenset[str] | None = None  # PR 10b: linking policies, a shared id
 
 
 def normalize_record(r: PersonRecord) -> NormalizedRecord:
@@ -57,4 +58,5 @@ def normalize_record(r: PersonRecord) -> NormalizedRecord:
         zip5=ad.zip5(r.zip),
         zip3=ad.zip3(r.zip),
         state=(r.state or "").strip().upper() or None,
+        policy_keys=frozenset(r.policy_keys) or None,
     )

@@ -2,7 +2,7 @@
   "args": {
     "enrollment": "derived",
     "mask_mbi": true,
-    "shared_ids": false
+    "shared_ids": true
   },
   "as_of": "2026-10-01",
   "created_at": "2026-10-01T12:00:00+00:00",
@@ -47,12 +47,12 @@
     "rules": "on"
   },
   "outputs": {
-    "households.json": "225d94f118c6105869d00e9f3a150aeab3b3e4e5a4a8ca61766f7cab0fdbe08d",
-    "members.jsonl": "d602b3e5c32dcc0635f940a1d413476b89589358a952baa7c894c89d9228cfc6",
-    "merge_log.jsonl": "68daab820138a93096f19260a25d701bf2f2661fa33ee49f1abe7918f69a5128",
-    "people.csv": "0ef20c2a44279e5894ddc68724e922f5c563568d10e51c9ba843c8daf57e9816",
-    "review_queue.jsonl": "a8920635e08a5259bb9e1d27a03f065fbb4e71084be15d8009f1ef52713c85c0",
-    "scorecard.json": "9a0f4dc85a0a87a9ffe0945d9857e2498533477384f0f6e8ec7d39e8e4be43e2"
+    "households.json": "7851b6c102655ba29fd0a2eb24c350a80a8c67af97646e0e0cc3f60b4111220c",
+    "members.jsonl": "1221e74a2342e28d5e0e7477c4cda4c855755a60107c321b0bc7016c96e4e027",
+    "merge_log.jsonl": "30a0a47e38d1e44b9d9bbfdbe0b7f1213330e45d6e043f5e518cc10f3adc52c2",
+    "people.csv": "8a61f03bf3f49e40133a8e11fc6c9081f73c11b710314a895b7d5392413304ad",
+    "review_queue.jsonl": "4a69328fc00f1e036a99114ccda3783efd38afc9ac48ed245ad25f70d44f1e1b",
+    "scorecard.json": "a4b24ef635659902ba9062c0b24b6fb9d9519143bf07a3885792dfb399e18634"
   },
   "parent_run_id": null,
   "review_pairs": [],

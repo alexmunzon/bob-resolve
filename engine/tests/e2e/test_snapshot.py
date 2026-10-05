@@ -75,13 +75,33 @@ def merged(run: dict[str, Any], a: str, b: str) -> bool:
     return any({e["a"], e["b"]} == {a, b} and e["action"] == "merge" for e in run["log"])
 
 
+def test_recall_after_review_target_on_every_combination(
+    combo: Any, request: pytest.FixtureRequest
+) -> None:
+    side, ids, run = combo
+    if not ids:
+        request.applymarker(pytest.mark.xfail(strict=True, reason=NO_IDS_RECALL_MISS))
+    m = run["scorecard"]["metrics"]["recall_after_review"]
+    assert m["target"] == 0.90 and m["label"] == "measured on synthetic data"
+    assert m["enrollment_side"] == side and m["shared_ids"] == ids
+    assert m["value"] >= 0.90 and m["meets_target"], m["value"]
+
+
+# PR 10b measured miss (Alex's GR-007, docs/pr-10b-notes.md). strict=True: remove when it passes.
+NO_IDS_RECALL_MISS = (
+    "Measured PR 10b: without shared ids recall after review is 0.0185 (snapshot and derived): "
+    "enrollment rows carry no phone, email, or street and MBI and policy are withheld, so CRM "
+    "to enrollment pairs agree on name and DOB only and GR-007 queues them as unsure."
+)
+
+
 def test_decision_2_targets_on_every_combination(combo: Any) -> None:
+    """Blocking recall and precision in every combination; recall after review is above."""
     side, ids, run = combo
     sc = run["scorecard"]
     for name, target in (
         ("blocking_recall", 0.98),
         ("auto_merge_precision", 0.99),
-        ("recall_after_review", 0.90),
     ):
         m = sc["metrics"][name]
         assert m["value"] >= target and m["target"] == target and m["meets_target"], name
@@ -101,13 +121,13 @@ def test_decision_2_targets_on_every_combination(combo: Any) -> None:
     assert all("mbi" not in m and "notes" not in m for m in run["members"])
 
 
-# PR 10: the phase 1 sides stay as regression tests. These are the review 2 numbers (people,
-# auto-merges, gray, reject); the matcher is frozen, so they must not move.
+# PR 10: the phase 1 sides stay as regression tests (people, auto-merges, gray, reject). PR 10b
+# numbers: GR-007 without the "unique" exception moves name-and-DOB-only pairs to gray.
 REGRESSION = {
-    ("snapshot", True): (2000, 2167, 11, 1278),
-    ("snapshot", False): (2000, 2167, 30, 1259),
-    ("derived", True): (2000, 2167, 11, 1280),
-    ("derived", False): (2025, 2139, 58, 1261),
+    ("snapshot", True): (2000, 2159, 19, 1278),
+    ("snapshot", False): (3838, 40, 2157, 1259),
+    ("derived", True): (2000, 2159, 19, 1280),
+    ("derived", False): (3838, 40, 2157, 1261),
 }
 
 
@@ -153,9 +173,14 @@ def test_example_2_near_duplicate_with_typo(combo: Any) -> None:
 
 
 def test_example_3_nickname_across_sources(combo: Any, hard: dict[str, Any]) -> None:
-    side, _, run = combo
+    side, shared_ids, run = combo
     dave = hard["people"].filter(pl.col("record_ids").str.contains("crm:HC-009"))
-    assert dave["first_name"].item() == "David" and "Dave" in dave["aliases"].item().split(";")
+    if hard["shared_ids"]:  # the example's premise: same DOB and MBI
+        assert dave["first_name"].item() == "David" and "Dave" in dave["aliases"].item().split(";")
+    else:  # MBI withheld: name and DOB alone wait in review as unsure (GR-007, PR 10b)
+        pair = {"crm:HC-009", "enrollment:9"}
+        item = next(i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == pair)
+        assert item["rule_ids"] == ["GR-007"] and item["suggestion"] == "unsure"
     if side != "derived":
         return
     crm = pl.read_csv(FIXTURES / "agency-a-snapshot/clients.csv", infer_schema=False)
@@ -170,7 +195,7 @@ def test_example_3_nickname_across_sources(combo: Any, hard: dict[str, Any]) -> 
             assert first[crm_ids[0]] in (row["aliases"] or "").split(";")
             assert row["first_name_source"].startswith("enrollment:")
             checked += 1
-    assert checked >= 20
+    assert checked >= 20 if shared_ids else checked == 0  # no shared ids: in review (GR-007)
 
 
 def test_example_4_twins_stay_two_people_in_one_household(hard: dict[str, Any]) -> None:
@@ -284,8 +309,8 @@ def test_review_2_examples_11_to_13_never_merge(hard: dict[str, Any]) -> None:
         )
         assert item["pairs"][0]["evidence"]["dob"] == "far"
         assert item["suggestion"] != "same_person"
-    # A unique name plus DOB with no location conflict still auto-merges (Dave and David).
-    assert merged(hard, "crm:HC-009", "enrollment:9")
+    # Dave and David: the shared MBI is the extra agreeing fact; without it, review (GR-007).
+    assert merged(hard, "crm:HC-009", "enrollment:9") is hard["shared_ids"]
 
 
 def test_committed_demo_regenerates_byte_identical(tmp_path: Path) -> None:

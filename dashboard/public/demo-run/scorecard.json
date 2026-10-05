@@ -9,12 +9,12 @@
     "GR-004": 0,
     "GR-005": 1280,
     "GR-006": 0,
-    "GR-007": 0
+    "GR-007": 8
   },
-  "households": 1425,
+  "households": 1400,
   "label": "measured on synthetic data",
   "merges": {
-    "auto": 2139,
+    "auto": 2159,
     "review": 0,
     "splits": 0
   },
@@ -23,7 +23,7 @@
       "enrollment_side": "derived",
       "label": "measured on synthetic data",
       "meets_target": true,
-      "shared_ids": false,
+      "shared_ids": true,
       "target": 0.99,
       "value": 1.0
     },
@@ -31,7 +31,7 @@
       "enrollment_side": "derived",
       "label": "measured on synthetic data",
       "meets_target": true,
-      "shared_ids": false,
+      "shared_ids": true,
       "target": 0.98,
       "value": 1.0
     },
@@ -39,14 +39,14 @@
       "enrollment_side": "derived",
       "label": "measured on synthetic data",
       "meets_target": true,
-      "shared_ids": false,
+      "shared_ids": true,
       "target": 0.9,
-      "value": 1.0
+      "value": 0.996308
     }
   },
-  "people": 2025,
+  "people": 2000,
   "people_holding_two_true_people": 0,
-  "people_left_split": 25,
+  "people_left_split": 0,
   "per_tier": {
     "jev": {
       "calls": 0,
@@ -57,23 +57,23 @@
       "mode": "off"
     },
     "rules": {
-      "auto_match": 2139,
-      "auto_reject": 1261,
-      "gray": 58
+      "auto_match": 2159,
+      "auto_reject": 1280,
+      "gray": 19
     }
   },
   "records_in": 3887,
   "review_queue": {
     "by_reason": {
-      "GRAY_ZONE": 58
+      "GRAY_ZONE": 19
     },
     "by_severity": {
       "high": 0,
-      "medium": 58
+      "medium": 19
     },
-    "size": 58
+    "size": 19
   },
-  "shared_ids": false,
+  "shared_ids": true,
   "true_pairs": 2167,
   "unidentifiable": 9,
   "unidentifiable_records": [

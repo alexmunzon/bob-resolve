@@ -91,13 +91,18 @@ moved households, shared household phones and emails, a child on a parent's poli
    the high line, auto-match; below the low line, auto-reject. **Guard rails that override the score:** different
    generational suffix (Jr vs Sr) is never auto-merged; a shared MBI with a DOB that is neither within one edit
    nor a month-day swap is never auto-merged (a pasted MBI is a data-entry error, not identity proof); shared phone or email alone never merges.
-   Added 2026-10-05 after reviews: GR-004 a name plus DOB key held by records that conflict never auto-merges; GR-005
+   Added 2026-10-05 after reviews: GR-004 a name plus DOB key held by records that conflict never auto-merges, except
+   that records tied together by MBI (shared ids on) or an exact phone, email, or street are one person's own records
+   and their conflicts do not count (a person who moved is not ambiguous with themselves, PR 10b); GR-005
    first names that are not nicknames of each other never auto-merge when they are distinct formal names, under 5
-   letters, or more than one typo apart (Patrick and Patricia, Mario and Maria); a year-digit DOB substitution counts
-   as a far DOB; GR-006 a DOB transposition that moves the year by more than 1 needs MBI, phone, email, or street to
-   agree; GR-007 (Alex, 2026-10-05) when name plus DOB is the only agreeing evidence, auto-merge only if no other record
-   in the book holds that key while disagreeing with the pair on any field, and the pair does not disagree on ZIP or
-   state. Gray pairs from these rails carry the rule id and a suggestion of "different people" or "unsure".
+   letters, more than one typo apart, or one edit apart at the end where either name ends in a vowel or y (Patrick
+   and Patricia, Mario and Maria, Andrew and Andrea, Louis and Louise), and a shared MBI never overrides it; a
+   year-digit DOB substitution counts as a far DOB; GR-006 a DOB transposition that moves the year by more than 1
+   needs MBI, phone, email, street, or a linking policy to agree; GR-007 (Alex, 2026-10-05, replaced in PR 10b) name
+   plus DOB as the only agreeing evidence never auto-merges: a pair needs one more agreeing fact, MBI (shared ids on),
+   phone, email, street, or a linking policy (the same policy id or carrier member id; a shared id, so withheld in no
+   shared ids mode), else gray with "unsure". Gray pairs from these rails carry the rule id and a suggestion of
+   "different people" or "unsure".
 4. **Jev gate on the gray zone** (after commons exists): `noul` "Is record B the same person as record A?" and `choice`
    household role (self, spouse, dependent, unrelated). Payload minimized to the compared fields only, no notes.
    Thresholds in `config.py`; Jev never overrides a guard rail. `off` mode sends every gray-zone pair to review.

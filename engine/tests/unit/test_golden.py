@@ -36,11 +36,13 @@ def run(request: pytest.FixtureRequest) -> tuple[str, bool, Resolution]:
     return side, ids, resolve_side(FIXTURES, side, ids, AS_OF, run_id="t", clock=clock)
 
 
+# PR 10b: without shared ids, CRM to enrollment pairs with only name and DOB wait in review
+# (GR-007), so their records stay separate people until a human decides.
 EXPECTED_PEOPLE = {
     ("snapshot", True): 2000,
-    ("snapshot", False): 2000,
+    ("snapshot", False): 3838,
     ("derived", True): 2000,
-    ("derived", False): 2025,
+    ("derived", False): 3838,
 }
 
 
@@ -84,7 +86,7 @@ def test_example_2_near_duplicate_with_typo_merges_and_log_names_tier_and_score(
 def test_example_3_derived_nicknames_keep_the_legal_name_and_the_alias(
     run: tuple[str, bool, Resolution],
 ) -> None:
-    side, _, res = run
+    side, ids, res = run
     if side != "derived":
         pytest.skip("the snapshot enrollment side repeats the CRM nickname")
     gt = json.loads((FIXTURES / "agency-a-snapshot" / "ground_truth.json").read_text())
@@ -102,7 +104,8 @@ def test_example_3_derived_nicknames_keep_the_legal_name_and_the_alias(
         assert first.rule == "authoritative_source"
         assert d["injected_values"]["to"] in p.aliases
         checked += 1
-    assert checked >= 40
+    # Without shared ids a nickname pair has only name and DOB: it waits in review (GR-007).
+    assert checked >= 40 if ids else checked == 0
 
 
 @pytest.fixture(scope="module")

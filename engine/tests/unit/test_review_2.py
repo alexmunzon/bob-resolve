@@ -129,32 +129,20 @@ def test_gr_007_two_james_smiths_in_different_zips(
 
 
 @pytest.mark.parametrize("ids", [True, False])
-def test_unique_name_and_dob_without_location_conflict_still_auto_matches(
+def test_name_and_dob_alone_never_auto_matches_even_when_unique(
     hard: dict[str, NormalizedRecord], ids: bool
 ) -> None:
+    """PR 10b (Alex) replaced the review 2 "unique in the book" exception: a lone James Smith
+    and an exact copy with nothing else, or with any other holders, never auto-match."""
     run = _run(list(hard.values()), ids)
-    dave = run[("crm:HC-009", "enrollment:9")]
-    assert dave.decision == "AUTO_MATCH" and dave.guard_rails == ()
+    dave = run[("crm:HC-009", "enrollment:9")]  # the MBI is the extra fact, ids on only
+    assert dave.guard_rails == (() if ids else ("GR-007",))
     james = hard["crm:HC-018"]
-    alone = [james, _copy(james, "crm:HC-018-copy")]
-    p = next(iter(_run(alone, ids).values()))
-    assert p.decision == "AUTO_MATCH" and "GR-007" not in p.guard_rails
-
-
-@pytest.mark.parametrize("ids", [True, False])
-def test_gr_007_another_untied_holder_makes_the_key_not_unique(
-    hard: dict[str, NormalizedRecord], ids: bool
-) -> None:
-    """James Smith in 43001 and an enrollment James Smith (no ZIP) would auto-match alone; a
-    third James Smith in 44101 holds the same name and DOB and cannot be tied, so it stops."""
-    a, far = hard["crm:HC-018"], hard["crm:HC-019"]
-    enr = _copy(a, "enrollment:99", source="enrollment", zip5=None, zip3=None, state=None)
-    assert _run([a, enr], ids)[("crm:HC-018", "enrollment:99")].decision == "AUTO_MATCH"
-    p = _run([a, enr, far], ids)[("crm:HC-018", "enrollment:99")]
-    assert p.decision == "GRAY" and p.suggestion == "unsure" and "GR-007" in p.guard_rails
-    twin_row = _copy(enr, "enrollment:98")  # same name and DOB, nothing pointing elsewhere
-    p = _run([a, enr, twin_row], ids)[("crm:HC-018", "enrollment:99")]
-    assert p.decision == "AUTO_MATCH" and "GR-007" not in p.guard_rails
+    enr = _copy(james, "enrollment:99", source="enrollment", zip5=None, zip3=None, state=None)
+    copy, far, twin_row = _copy(james, "crm:x"), hard["crm:HC-019"], _copy(enr, "enrollment:98")
+    for recs in ([james, copy], [james, enr], [james, enr, far], [james, enr, twin_row]):
+        for p in _run(recs, ids).values():
+            assert p.decision == "GRAY" and p.suggestion == "unsure" and "GR-007" in p.guard_rails
 
 
 # F8: precision and recall after review are measured on the final kept edges.

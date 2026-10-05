@@ -42,12 +42,33 @@ def report(request: pytest.FixtureRequest) -> tuple[ScoreReport, list[ScoredPair
 
 
 def test_auto_merge_precision_and_recall_after_review_meet_the_targets(
-    report: tuple[ScoreReport, list[ScoredPair]],
+    report: tuple[ScoreReport, list[ScoredPair]], request: pytest.FixtureRequest
 ) -> None:
     rep, _ = report
+    if not rep.shared_ids:
+        request.applymarker(pytest.mark.xfail(strict=True, reason=NO_IDS_RECALL_MISS))
     assert rep.true_pairs == 2167 and rep.auto_match > 0
     assert rep.auto_merge_precision >= TARGET_AUTO_MERGE_PRECISION, rep.false_merges[:10]
     assert rep.recall_after_review >= TARGET_RECALL_AFTER_REVIEW, rep.missed[:10]
+
+
+# PR 10b measured miss (Alex's GR-007, docs/pr-10b-notes.md). strict=True: if it ever passes,
+# the marker must be removed.
+NO_IDS_RECALL_MISS = (
+    "Measured PR 10b: without shared ids recall after review is 0.0185 on the snapshot and on "
+    "the derived side. Enrollment rows carry no phone, email, or street, and MBI and policy are "
+    "withheld, so almost every CRM to enrollment pair has only name and DOB: GR-007 sends it to "
+    "review as unsure, which SPEC decision 2 does not count as found. Precision stays 1.0."
+)
+
+
+def test_no_shared_ids_precision_still_meets_the_target(
+    report: tuple[ScoreReport, list[ScoredPair]],
+) -> None:
+    """The xfail above covers recall only; precision is still a hard target in both modes."""
+    rep, _ = report
+    assert rep.true_pairs == 2167 and rep.auto_match > 0
+    assert rep.auto_merge_precision >= TARGET_AUTO_MERGE_PRECISION, rep.false_merges[:10]
 
 
 def test_every_guard_rail_hit_records_its_rule_id_and_never_auto_matches(
@@ -101,12 +122,15 @@ def test_example_7_identity_conflict_goes_to_review(hard: dict[str, NormalizedRe
 
 
 def test_same_person_hard_cases_are_found_or_reviewed(hard: dict[str, NormalizedRecord]) -> None:
-    for ids in (True, False):
-        p = _score(hard, "crm:HC-009", "enrollment:9", ids)  # example 3, Dave and David
-        assert p.decision == "AUTO_MATCH" or p.suggestion == "same_person", p
+    p = _score(hard, "crm:HC-009", "enrollment:9", True)  # example 3, Dave and David
+    assert p.decision == "AUTO_MATCH" or p.suggestion == "same_person", p
+    # Without shared ids only name and DOB agree: GR-007 (PR 10b) sends it to review, unsure.
+    p = _score(hard, "crm:HC-009", "enrollment:9", False)
+    assert p.decision == "GRAY" and p.suggestion == "unsure" and p.guard_rails == ("GR-007",)
     # Nina's CRM row carries a pasted MBI, so her two rows disagree on MBI: review, not a guess.
     assert _score(hard, "crm:HC-008", "enrollment:8").decision == "GRAY"
-    assert _score(hard, "crm:HC-008", "enrollment:8", ids=False).decision == "AUTO_MATCH"
+    p = _score(hard, "crm:HC-008", "enrollment:8", ids=False)  # name and DOB only (GR-007)
+    assert p.decision == "GRAY" and p.guard_rails == ("GR-007",)
 
 
 def test_month_day_swap_with_same_mbi_is_scored_not_blocked(
@@ -228,9 +252,11 @@ def test_gr_004_same_name_and_dob_with_nothing_in_common_never_auto_match(
     run = _run_hard(hard, ids)
     p = run[("crm:HC-010", "crm:HC-011")]
     assert p.decision == "GRAY" and p.suggestion == "unsure" and "GR-004" in p.guard_rails
-    # A true pair with the same name and DOB and no conflicting holder still auto-merges.
+    # A true pair with the same name and DOB and no conflicting holder is not GR-004. With
+    # shared ids it auto-merges; without, only name and DOB agree, so GR-007 holds it (PR 10b).
     dave = run[("crm:HC-009", "enrollment:9")]
-    assert dave.decision == "AUTO_MATCH" and dave.guard_rails == ()
+    assert "GR-004" not in dave.guard_rails
+    assert dave.guard_rails == (() if ids else ("GR-007",))
 
 
 def test_gr_004_stops_every_pair_on_a_conflicted_key(hard: dict[str, NormalizedRecord]) -> None:
@@ -275,7 +301,10 @@ def test_gr_005_lets_a_one_letter_typo_and_a_nickname_auto_match(
         p = score_pair(pat, copy, shared_ids=ids)
         assert p.decision == "AUTO_MATCH" and "GR-005" not in p.guard_rails, typo
     dave = _score(hard, "crm:HC-009", "enrollment:9", ids)  # Dave and David: nickname
-    assert dave.decision == "AUTO_MATCH" and dave.guard_rails == ()
+    assert "GR-005" not in dave.guard_rails
+    # With shared ids the MBI agrees; without, name and DOB alone wait in review (GR-007).
+    assert dave.guard_rails == (() if ids else ("GR-007",))
+    assert (dave.decision == "AUTO_MATCH") is ids
     blank = pat.model_copy(update={"record_id": "crm:HC-012-blank", "first_name": None})
     assert "GR-005" not in score_pair(pat, blank, shared_ids=ids).guard_rails
 

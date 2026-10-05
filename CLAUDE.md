@@ -13,7 +13,7 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - `cd engine && uv run bob-resolve run --enrollment snapshot --out ../runs --run-id <id>`   write one immutable run folder (add `--no-shared-ids`, `--as-of`, `--now` as needed).
 - `cd engine && uv run bob-resolve run --world multi-a-b --out ../runs --run-id <id>`   held-out two-agency world from agency-data-commons v0.2.0 (generated into git-ignored fixtures/generated/).
 - `cd engine && uv run bob-resolve review apply --run ../runs/<id> --decisions <file.jsonl> --out ../runs --run-id <new id>`   apply human decisions as a new run; the old run is never changed.
-- `npm run demo`   regenerate the committed demo run in dashboard/public/demo-run/ (MBI masked). Byte-identical on a rerun.
+- `npm run demo`   regenerate the committed demo run in dashboard/public/demo-run/ (derived side, shared ids on, MBI masked). Byte-identical on a rerun.
 - `cd dashboard && npm run dev`   local dashboard.
 
 ## Invariants (never break these)
@@ -22,9 +22,11 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - Guard rails override the score and are never overridden by Jev or an LLM: different generational
   suffix is never auto-merged (GR-001); a shared MBI with DOBs more than one edit apart is never
   auto-merged (GR-002); shared phone or email alone never merges (GR-003); an ambiguous identity key
-  never auto-merges (GR-004); first names that are not compatible and more than one typo apart
-  (Patrick and Patricia) never auto-merge (GR-005); a year-changing DOB transposition needs another agreeing
-  identifier (GR-006); name plus DOB alone auto-merges only if unique in the book with no ZIP or state conflict (GR-007).
+  never auto-merges, but one person's own records tied by MBI, phone, email, or street never count as conflicting
+  (GR-004); first names that are not compatible, more than one typo apart, or one edit apart at a vowel or y ending
+  (Patrick and Patricia, Andrew and Andrea) never auto-merge, even with a shared MBI (GR-005); a year-changing DOB
+  transposition needs another agreeing identifier (GR-006); name plus DOB as the only agreeing evidence never
+  auto-merges: it needs MBI (shared ids on), phone, email, street, or a linking policy (GR-007).
 - Two authoritative sources that disagree on DOB or MBI are never guessed: review with IDENTITY_CONFLICT.
 - The merge log is append-only JSONL. Never rewrite a line; a correction is a new line.
 - JEV_MODE defaults to replay. The LLM arm defaults off. live and record spend money: no agent sets them;

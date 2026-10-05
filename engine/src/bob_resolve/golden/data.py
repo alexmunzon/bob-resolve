@@ -37,7 +37,30 @@ def load_people(
             .agg(pl.col("effective_date").str.to_date("%Y-%m-%d", strict=False).max())
         )
         recency |= {f"crm:{c}": d for c, d in latest.iter_rows() if d is not None}
-    return to_records(crm, "crm") + to_records(enr, "enrollment", row_prefix), recency
+    records = to_records(crm, "crm") + to_records(enr, "enrollment", row_prefix)
+    if policies_csv is not None:
+        keys = policy_keys(policies_csv, enr, row_prefix)
+        records = [r.model_copy(update={"policy_keys": keys.get(r.record_id, ())}) for r in records]
+    return records, recency
+
+
+def policy_keys(policies_csv: Path, enr: pl.DataFrame, prefix: str) -> dict[str, tuple[str, ...]]:
+    """PR 10b: each CRM client's policy ids and carrier member ids from policies.csv; each
+    enrollment row's policy number and that policy's carrier member id. Policy ids get the
+    agency prefix, so two agencies never share one by accident."""
+    pol = pl.read_csv(policies_csv, infer_schema=False)
+    out: dict[str, set[str]] = {}
+    by_policy: dict[str, set[str]] = {}
+    for pid, cid, carrier, member in pol.select(
+        "policy_id", "client_id", "carrier", "carrier_member_id"
+    ).rows():
+        keys = {f"policy:{prefix}{pid}"} | ({f"member:{carrier}:{member}"} if member else set())
+        out.setdefault(f"crm:{cid}", set()).update(keys)
+        by_policy.setdefault(pid, set()).update(keys)
+    for row, pn in enr.select("row_number", "policy_number").rows():
+        if pn:
+            out[f"enrollment:{prefix}{row}"] = by_policy.get(pn, {f"policy:{prefix}{pn}"})
+    return {r: tuple(sorted(k)) for r, k in out.items()}
 
 
 def resolve_side(
