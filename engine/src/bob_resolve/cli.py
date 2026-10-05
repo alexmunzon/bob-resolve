@@ -126,6 +126,9 @@ AsOf = Annotated[
 ]
 Now = Annotated[str | None, typer.Option(help="Fixed ISO time for a repeatable run")]
 Parquet = Annotated[bool, typer.Option("--parquet/--no-parquet", help="Also write people.parquet")]
+MaskMbi = Annotated[
+    bool, typer.Option("--mask-mbi", help="Mask the MBI in people.csv to its last 4 characters")
+]
 
 
 @app.command("run")
@@ -142,13 +145,14 @@ def run_command(
     as_of: AsOf = _AS_OF_DEFAULT,
     now: Now = None,
     parquet: Parquet = True,
+    mask_mbi: MaskMbi = False,
     fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
 ) -> None:
     """Resolve one fixture side end to end and write an immutable run folder. Jev and LLM off."""
     t, frozen = _now(now)
     opts = RunOptions(
         fixtures.resolve(), enrollment, shared_ids, out, run_id, as_of.date(), t, frozen,
-        overwrite, parquet,
+        overwrite, parquet, mask_mbi,
     )  # fmt: skip
     try:
         folder = execute(opts)
@@ -184,8 +188,9 @@ def review_apply(
         fixtures.resolve(), "snapshot", True, out, run_id, date.min, t, frozen, overwrite, parquet
     )
     try:
-        folder, applied, stored = apply_review(run, decisions, opts)
+        folder, applied, cut, stored = apply_review(run, decisions, opts)
     except (RunRefused, ValueError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from e
-    typer.echo(f"new run {folder.name}: {applied} decisions applied, {stored} stored only")
+    typer.echo(f"new run {folder.name}: {applied} decisions applied, {stored} stored only, "
+               f"{cut} cut by the cluster check")  # fmt: skip

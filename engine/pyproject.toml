@@ -1,6 +1,6 @@
 [project]
 name = "bob-resolve"
-version = "0.0.0"
+version = "0.1.0"
 description = "Entity resolution for agency books of business: same-person matching, golden records, households, and a review queue. Synthetic data only."
 requires-python = ">=3.12,<3.13"
 license = "MIT"

@@ -12,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from bob_resolve.config import MBI_VISIBLE_CHARS, SCORE_HIGH, SCORE_LOW
 from bob_resolve.golden import Resolution
 from bob_resolve.load.records import PersonRecord
 from bob_resolve.normalize.record import NormalizedRecord
@@ -20,7 +21,7 @@ from bob_resolve.score.rules import ScoredPair, Suggestion, weighted_score
 
 Kind = Literal["gray_pair", "cluster_conflict", "identity_conflict"]
 Reason = Literal["GRAY_ZONE", "CLUSTER_CONFLICT", "IDENTITY_CONFLICT"]
-_REASON_ORDER = {"IDENTITY_CONFLICT": 0, "CLUSTER_CONFLICT": 1, "GRAY_ZONE": 2}
+Severity = Literal["high", "medium"]
 
 
 class Strict(BaseModel):
@@ -57,7 +58,8 @@ class QueueItem(Strict):
     item_id: str
     kind: Kind
     reason: Reason
-    severity: Literal["high", "medium"]
+    severity: Severity
+    cutoff_distance: float
     deciding_tier: str
     suggestion: Suggestion
     rule_ids: tuple[str, ...]
@@ -79,10 +81,31 @@ class ReviewDecision(Strict):
 
 def mask_mbi(mbi: str | None) -> str | None:
     clean = "".join(c for c in (mbi or "") if c.isalnum())
-    return "*" * (len(clean) - 4) + clean[-4:] if len(clean) > 4 else None
+    keep = MBI_VISIBLE_CHARS
+    return "*" * (len(clean) - keep) + clean[-keep:] if len(clean) > keep else None
 
 
-def minimize(r: PersonRecord, active: Collection[str]) -> ReviewRecord:
+def cutoff_distance(scores: Sequence[float]) -> float:
+    """How far the item's closest pair score sits from the nearer cutoff (auto-match or
+    auto-reject line). Small means a close call. An item with no scored pair counts as 0."""
+    return min((min(abs(SCORE_HIGH - s), abs(s - SCORE_LOW)) for s in scores), default=0.0)
+
+
+def severity(
+    reason: Reason, suggestion: Suggestion, ids: Sequence[str], owners: Mapping[str, str]
+) -> Severity:
+    """High for IDENTITY_CONFLICT, or a "same person" suggestion where two records each hold an
+    active policy under different client ids, so a merge would move money or coverage.
+    `owners` maps a record with an active policy to the client id that owns the policy."""
+    held = {owners[i] for i in ids if i in owners}
+    active = sum(i in owners for i in ids)
+    if reason == "IDENTITY_CONFLICT" or (suggestion == "same_person" and active >= 2
+                                         and len(held) >= 2):  # fmt: skip
+        return "high"
+    return "medium"
+
+
+def minimize(r: PersonRecord, active: Collection[str] | Mapping[str, str]) -> ReviewRecord:
     return ReviewRecord(
         record_id=r.record_id,
         source=r.source,
@@ -107,13 +130,13 @@ def build_queue(
     scored: Sequence[ScoredPair],
     records: Mapping[str, PersonRecord],
     norm: Mapping[str, NormalizedRecord],
-    active: Collection[str],
+    owners: Mapping[str, str],
     shared_ids: bool,
     skip: Collection[str] = (),
 ) -> list[QueueItem]:
-    """Severity is high for IDENTITY_CONFLICT, or when the merge would move an active policy:
-    two or more of the item's records each carry one. Items in `skip` (already decided) are
-    left out. Sorted: high first, then reason, then highest score, then item id."""
+    """`owners` maps each record with an active policy to its owning client id (see
+    `severity`). Items in `skip` (already decided) are left out. Sorted: high first, then the
+    closest call (distance from the nearer cutoff), then item id."""
     by_pair = {(p.a, p.b): p for p in scored}
     person = {r: p.person_id for p in res.people for r in p.record_ids}
 
@@ -128,21 +151,20 @@ def build_queue(
         suggestion: Suggestion, rules: Sequence[str], detail: str,
     ) -> QueueItem:  # fmt: skip
         ids = sorted(ids)
-        n_active = sum(i in active for i in ids)
-        high = reason == "IDENTITY_CONFLICT" or n_active >= 2
-        severity: Literal["high", "medium"] = "high" if high else "medium"
+        ev = tuple(evidence(a, b) for a, b in sorted(pairs))
         digest = hashlib.sha256(f"{kind}|{'|'.join(ids)}".encode()).hexdigest()[:12]
         return QueueItem(
             item_id=f"rq-{digest}",
             kind=kind,
             reason=reason,
-            severity=severity,
+            severity=severity(reason, suggestion, ids, owners),
+            cutoff_distance=round(cutoff_distance([p.score for p in ev]), 6),
             deciding_tier="rules",
             suggestion=suggestion,
             rule_ids=tuple(rules),
             already_one_person=len({person.get(i, i) for i in ids}) == 1,
-            records=tuple(minimize(records[i], active) for i in ids),
-            pairs=tuple(evidence(a, b) for a, b in sorted(pairs)),
+            records=tuple(minimize(records[i], owners) for i in ids),
+            pairs=ev,
             detail=detail,
         )
 
@@ -190,12 +212,7 @@ def build_queue(
     items = [i for i in items if i.item_id not in skip]
     return sorted(
         items,
-        key=lambda i: (
-            i.severity != "high",
-            _REASON_ORDER[i.reason],
-            -max((p.score for p in i.pairs), default=0.0),
-            i.item_id,
-        ),
+        key=lambda i: (i.severity != "high", i.cutoff_distance, i.item_id),
     )
 
 
@@ -213,7 +230,9 @@ __all__ = [
     "ReviewDecision",
     "ReviewRecord",
     "build_queue",
+    "cutoff_distance",
     "mask_mbi",
     "minimize",
     "read_decisions",
+    "severity",
 ]
