@@ -55,11 +55,17 @@ SSN-001); real CRM connectors; editing data in the dashboard; user accounts; tra
 
 **Phase 1 snapshot** (`fixtures/agency-a-snapshot/`, copied byte for byte, about 1 MB):
 - `clients.csv`, `households.csv`, `policies.csv` from `fixtures/agency-a/canonical-defected/`. Clients are the CRM side:
-  2,030 rows (2,000 people plus 30 near-duplicate client ids). Identity defects live only here.
+  2,040 rows (2,000 people plus 30 near-duplicate and 10 exact-copy client ids, each with `copy_of`). Identity defects live only here.
 - `enrollment_export.csv` from `fixtures/agency-a/drop/`: the enrollment platform side, one row per policy, legal names,
   semicolon delimited, `Birth Dt (mm/dd/yy)` dates (two-digit years pivot at 1930, as in the intake kit), MBI, policy number.
 - `ground_truth.json`: the 160 unscored identity defects (60 nickname, 40 name_typo, 20 dob_transposition,
   10 dob_month_day_swap, 30 near_duplicate_client with `copy_of`), each keyed by `client_id`.
+
+**Derived clean enrollment side** (decided 2026-10-05 after PR 2 found the enrollment export repeats the CRM's
+defected values): `fixtures/agency-a-derived/enrollment_clean.csv` is built by code from the snapshot, replacing each of
+the 130 nickname, name_typo, dob_transposition, and dob_month_day_swap values with its recorded original (`from`), so
+the CRM says Dave while enrollment says David. Labeled "derived from the answer key" everywhere it is reported; the
+benchmark reports the snapshot and the derived set separately.
 
 **Pair answer key** (built by code, never hand-edited): an enrollment row and a CRM client are the same person when the
 row's policy number resolves through `policies.csv` to that `client_id`; a near-duplicate client is the same person as
@@ -118,7 +124,8 @@ moved households, shared household phones and emails, a child on a parent's poli
    review at least 0.90, blocking recall at least 0.98, every golden field names its source row and deciding tier.
 2. **Near-duplicate with a typo.** CRM client C-02011 (last name "Nlan") is a copy of C-00023. They end in one cluster,
    by auto-merge or by a review item suggesting "same person"; the merge log names the tier and the score.
-3. **Nickname across sources.** CRM C-00011 says "Dave"; the enrollment export says "David" with the same DOB and MBI.
+3. **Nickname across sources.** Hard case HC-009 (C-00011 has only an ACA policy, so no enrollment row) and every
+   nickname pair in the derived clean enrollment side: CRM says "Dave", enrollment says "David", same DOB and MBI.
    Same person. The golden first name is "David" (enrollment wins identity fields) and "Dave" is kept as an alias.
 4. **Must not merge, twins.** Hard case: two people, same last name, same DOB, same address and phone, different first
    names and different MBIs. They stay two people in one household; no merge line in the log.
