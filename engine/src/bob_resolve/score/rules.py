@@ -6,25 +6,28 @@ auto-match; a pair they stop goes to the gray zone with the rule id recorded on 
 
 import math
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from itertools import combinations
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from bob_resolve.config import (
+    DOB_TRANSPOSITION_MAX_YEARS,
     GRAY_SAME_PERSON_MIN,
+    INDEPENDENT_EVIDENCE_LEVELS,
     SCORE_BIAS,
     SCORE_HIGH,
     SCORE_LOW,
     SCORE_WEIGHTS,
 )
+from bob_resolve.normalize.names import canonical_names
 from bob_resolve.normalize.record import NormalizedRecord
 from bob_resolve.score.compare import Comparison, compare
 
 Decision = Literal["AUTO_MATCH", "GRAY", "AUTO_REJECT"]
 Suggestion = Literal["same_person", "different_people", "unsure"]
-RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004", "GR-005"]
+RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007"]
 GUARD_RAILS: dict[RuleId, str] = {
     "GR-001": "Different generational suffix (Jr and Sr) never auto-matches.",
     "GR-002": "Shared MBI with a DOB neither within one edit nor a month-day swap: "
@@ -33,9 +36,17 @@ GUARD_RAILS: dict[RuleId, str] = {
     "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
     "and some holder conflicts with another, so no pair on that key auto-matches.",
     "GR-005": "First names incompatible: not equal, not nicknames or an initial, and more than "
-    "one typo apart (Patrick and Patricia), so the pair never auto-matches.",
+    "one typo apart (Patrick and Patricia), so the pair never auto-matches. Two known formal "
+    "names (Mario and Maria) or a name under five letters is never a typo.",
+    "GR-006": "Birth year moved by more than one year through a digit transposition, with no "
+    "MBI, phone, email, or street agreeing: never auto-matches.",
+    "GR-007": "Name and DOB only, not unique or location conflict: the pair agrees on nothing "
+    "else and its name plus DOB is held by another untied record, or ZIP or state differs.",
 }
+# Rails that only stop an auto-match with an honest "unsure": the records may well be one person.
+_UNSURE_RAILS: frozenset[RuleId] = frozenset({"GR-006", "GR-007"})
 IdentityKey = tuple[str, str, str]
+NameDobKey = tuple[str, str]
 _CLOSE_DOB = frozenset({"exact", "transposition", "month_day_swap", "one_edit"})
 
 
@@ -62,7 +73,27 @@ def weighted_score(c: Comparison) -> float:
     return 1 / (1 + math.exp(-total))
 
 
-def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
+def independent_evidence(c: Comparison) -> bool:
+    """True when MBI, phone, email, or street agrees (INDEPENDENT_EVIDENCE_LEVELS)."""
+    return any(getattr(c, f) in levels for f, levels in INDEPENDENT_EVIDENCE_LEVELS.items())
+
+
+def name_dob_only(c: Comparison) -> bool:
+    """Names and DOB agree (equal, nickname, or a typo; close DOB) and nothing else does."""
+    first_ok = c.first in ("equal", "nickname") or (c.first == "close" and bool(c.first_typo))
+    agree = first_ok and c.last in ("equal", "close") and c.dob in _CLOSE_DOB
+    return agree and not independent_evidence(c)
+
+
+def name_dob_only_guard(c: Comparison, name_dob_unique: bool) -> bool:
+    """GR-007, the one place the "name plus DOB as the only evidence" rule lives (Review 2, F3).
+    Such a pair may auto-match only when its name plus DOB is held by one person in the whole
+    book (`name_dob_unique`, see name_dob_unique_pairs) and ZIP5 and state do not disagree."""
+    location_conflict = c.zip5 == "different" or c.state == "different"
+    return name_dob_only(c) and (not name_dob_unique or location_conflict)
+
+
+def guard_rails(c: Comparison, name_dob_unique: bool = True) -> tuple[RuleId, ...]:
     hits: list[RuleId] = []
     if c.suffix == "different":
         hits.append("GR-001")
@@ -78,6 +109,11 @@ def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
         hits.append("GR-003")
     if c.first in ("close", "far") and not c.first_typo:
         hits.append("GR-005")  # a missing first name (None) never fires it
+    far_year = (c.dob_years_apart or 0) > DOB_TRANSPOSITION_MAX_YEARS
+    if c.dob == "transposition" and far_year and not independent_evidence(c):
+        hits.append("GR-006")
+    if name_dob_only_guard(c, name_dob_unique):
+        hits.append("GR-007")
     return tuple(hits)
 
 
@@ -111,6 +147,61 @@ def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set
     }
 
 
+def _holder_index(records: Sequence[NormalizedRecord]) -> dict[NameDobKey, list[NormalizedRecord]]:
+    out: dict[NameDobKey, list[NormalizedRecord]] = defaultdict(list)
+    for r in records:
+        if r.last_name and r.dob_key and r.first_name:
+            out[(r.last_name, r.dob_key)].append(r)
+    return out
+
+
+_DISAGREE: dict[str, str] = {
+    "mbi": "different",
+    "phone": "different",
+    "email": "different",
+    "street": "different",
+    "zip5": "different",
+    "state": "different",
+    "suffix": "different",
+}
+
+
+def _tied(o: NormalizedRecord, r: NormalizedRecord, shared_ids: bool) -> bool:
+    """The pair's own evidence ties holder `o` to pair record `r` when some independent field
+    agrees, or when `o` disagrees with `r` on nothing (no different MBI, phone, email, street,
+    ZIP5, state, or suffix): it is the same name plus DOB with nothing pointing elsewhere."""
+    c = compare(o, r, shared_ids)
+    if independent_evidence(c):
+        return True
+    return not any(getattr(c, f) == level for f, level in _DISAGREE.items())
+
+
+def name_dob_unique_checker(
+    records: Sequence[NormalizedRecord], shared_ids: bool
+) -> Callable[[NormalizedRecord, NormalizedRecord], bool]:
+    """GR-007 (a): judged over the whole book, never the answer key. A pair's name plus DOB is
+    unique when every other record holding it (same last name and DOB, a first name sharing a
+    formal name with either side) is tied to both records of the pair (see _tied). One James
+    Smith in another ZIP, or with another phone, makes the key not unique."""
+    index = _holder_index(records)
+
+    def unique(a: NormalizedRecord, b: NormalizedRecord) -> bool:
+        names = canonical_names(a.first_name) | canonical_names(b.first_name)
+        keys = {(r.last_name, r.dob_key) for r in (a, b) if r.last_name and r.dob_key}
+        others = {
+            o.record_id: o
+            for k in keys
+            for o in index.get(k, [])
+            if o.record_id not in (a.record_id, b.record_id)
+            and canonical_names(o.first_name) & names
+        }
+        return all(
+            _tied(o, a, shared_ids) and _tied(o, b, shared_ids) for o in others.values()
+        )
+
+    return unique
+
+
 def decide(score: float, rails: tuple[RuleId, ...]) -> tuple[Decision, Suggestion | None]:
     """An identity conflict or an ambiguous key always goes to review. Other rails only stop an
     auto-match; a pair below the low line is still rejected, since rejecting merges no one."""
@@ -123,16 +214,22 @@ def decide(score: float, rails: tuple[RuleId, ...]) -> tuple[Decision, Suggestio
     if score >= SCORE_HIGH and not rails:
         return "AUTO_MATCH", None
     if rails:
-        return "GRAY", "different_people"
+        return "GRAY", "unsure" if set(rails) <= _UNSURE_RAILS else "different_people"
     return "GRAY", "same_person" if score >= GRAY_SAME_PERSON_MIN else "unsure"
 
 
 def score_pair(
-    a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True, ambiguous_key: bool = False
+    a: NormalizedRecord,
+    b: NormalizedRecord,
+    shared_ids: bool = True,
+    ambiguous_key: bool = False,
+    name_dob_unique: bool = True,
 ) -> ScoredPair:
-    """`ambiguous_key` is True when both records hold one GR-004 key (see ambiguous_keys)."""
+    """`ambiguous_key` is True when both records hold one GR-004 key (see ambiguous_keys);
+    `name_dob_unique` is the GR-007 whole-book check (see name_dob_unique_checker)."""
     c = compare(a, b, shared_ids)
-    s, rails = weighted_score(c), guard_rails(c) + (("GR-004",) if ambiguous_key else ())
+    rails = guard_rails(c, name_dob_unique) + (("GR-004",) if ambiguous_key else ())
+    s = weighted_score(c)
     decision, suggestion = decide(s, rails)
     if suggestion == "same_person" and c.first not in ("equal", "nickname", "close"):
         suggestion = "unsure"  # never suggest one person when first names are incompatible

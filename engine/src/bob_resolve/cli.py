@@ -10,6 +10,7 @@ import typer
 from bob_resolve import __version__
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
+from bob_resolve.cluster import split_on_conflict
 from bob_resolve.config import DEFAULT_AS_OF, SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
 from bob_resolve.run import RunOptions, RunRefused, RunSide, apply_review, execute
 from bob_resolve.score import evaluate_scores, score_candidates
@@ -98,12 +99,14 @@ def score(
     day: date = as_of.date()
     records, key = load_normalized(fixtures, enrollment, as_of=day)
     scored = score_candidates(records, candidate_pairs(records, shared_ids), shared_ids)
-    rep = evaluate_scores(scored, key, shared_ids)
+    _, kept, _ = split_on_conflict(records, [p for p in scored if p.decision == "AUTO_MATCH"])
+    rep = evaluate_scores(scored, key, shared_ids, kept=kept)  # final edges (Review 2, F8)
     label = " (derived from the answer key)" if enrollment == "derived" else ""
     typer.echo(f"enrollment: {enrollment}{label}; shared ids: {'on' if shared_ids else 'off'}")
     typer.echo(f"cutoffs: high {SCORE_HIGH}, low {SCORE_LOW}")
     typer.echo(f"auto-merge precision: {rep.auto_merge_precision:.4f}")
-    typer.echo(f"auto-merge count: {rep.auto_match}")
+    typer.echo(f"auto-merge count: {rep.auto_match} (after cluster splits)")
+    typer.echo(f"auto-matches cut by a cluster conflict: {rep.cut_by_cluster}")
     typer.echo(f"gray count: {rep.gray}")
     typer.echo(f"reject count: {rep.auto_reject}")
     typer.echo(f"recall after review: {rep.recall_after_review:.4f} of {rep.true_pairs} true pairs")

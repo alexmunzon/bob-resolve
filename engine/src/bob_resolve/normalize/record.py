@@ -35,6 +35,7 @@ class NormalizedRecord(BaseModel):
     address_line1: str | None
     zip5: str | None
     zip3: str | None
+    state: str | None = None  # two letters, uppercase; GR-007 location check (Review 2)
 
 
 def normalize_record(r: PersonRecord) -> NormalizedRecord:
@@ -55,4 +56,5 @@ def normalize_record(r: PersonRecord) -> NormalizedRecord:
         address_line1=ad.normalize_address(r.address_line1),
         zip5=ad.zip5(r.zip),
         zip3=ad.zip3(r.zip),
+        state=(r.state or "").strip().upper() or None,
     )

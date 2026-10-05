@@ -8,7 +8,12 @@ from pathlib import Path
 
 import jellyfish
 
-from bob_resolve.config import GENERATIONAL_SUFFIXES
+from bob_resolve.config import (
+    FIRST_NAME_TYPO_MAX_EDITS,
+    FIRST_NAME_TYPO_MIN_LENGTH,
+    FORMAL_GIVEN_NAMES,
+    GENERATIONAL_SUFFIXES,
+)
 
 NICKNAMES_CSV = Path(__file__).resolve().parents[1] / "data" / "nicknames.csv"
 _DROP = re.compile(r"['’.]")
@@ -79,6 +84,28 @@ def names_compatible(a: str | None, b: str | None) -> bool:
         return True
     short, long_ = sorted((na, nb), key=len)
     return len(short) == 1 and long_.startswith(short)
+
+
+@cache
+def formal_given_names() -> frozenset[str]:
+    """Every formal name in the nickname table plus the curated list in config (Review 2)."""
+    table = frozenset(c for cs in _nickname_table().values() for c in cs)
+    return table | FORMAL_GIVEN_NAMES
+
+
+def first_name_typo(a: str | None, b: str | None) -> bool:
+    """True when two different, incompatible first names may be one name mistyped: at most
+    FIRST_NAME_TYPO_MAX_EDITS Damerau-Levenshtein edits, both at least
+    FIRST_NAME_TYPO_MIN_LENGTH letters, and not two known formal names (Mario and Maria)."""
+    na, nb = normalize_name(a), normalize_name(b)
+    if na is None or nb is None:
+        return False
+    if jellyfish.damerau_levenshtein_distance(na, nb) > FIRST_NAME_TYPO_MAX_EDITS:
+        return False
+    if min(len(na), len(nb)) < FIRST_NAME_TYPO_MIN_LENGTH:
+        return False
+    formal = formal_given_names()
+    return not (na in formal and nb in formal)
 
 
 def surname_key(last: str | None) -> str | None:

@@ -47,11 +47,13 @@ def _formal_names() -> frozenset[str]:
 
 def conflict_reasons(a: NormalizedRecord, b: NormalizedRecord) -> tuple[str, ...]:
     """Field names that conflict. Two different formal names (Patrick, Patricia) conflict even
-    when Jaro-Winkler calls them close: a typo is not another known name."""
+    when Jaro-Winkler calls them close: a typo is not another known name. Review 2: so do any
+    close first names that are not a typo by GR-005's test (Mario and Maria, Jon and Jan)."""
     c = compare(a, b, shared_ids=False)
     out = [f for f, levels in CLUSTER_CONFLICT_LEVELS.items() if getattr(c, f) in levels]
     formal = _formal_names()
-    if c.first == "close" and a.first_name in formal and b.first_name in formal:
+    both_formal = a.first_name in formal and b.first_name in formal
+    if c.first == "close" and (both_formal or not c.first_typo):
         out.insert(0, "first")
     return tuple(out)
 
