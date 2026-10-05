@@ -86,3 +86,23 @@ MIN_PLAUSIBLE_AGE: Final[int] = 18
 MAX_PLAUSIBLE_AGE: Final[int] = 120
 # Fixed "today" for the CLI, so runs are repeatable. Library code always takes as_of explicitly.
 DEFAULT_AS_OF: Final[date] = date(2026, 10, 1)
+
+# PR 6
+# Survivorship (SPEC decision 4). Identity fields (legal first and last name, suffix, DOB, MBI)
+# come from the most authoritative source: lower rank wins. Contact fields (address, phone,
+# email) come from the most recent record (docs/pr-6-notes.md defines "most recent").
+SOURCE_AUTHORITY: Final[dict[str, int]] = {"enrollment": 0, "crm": 1}
+# Only these sources count as authoritative: if two of their records in one cluster disagree on
+# DOB or MBI, the field is left empty and the person goes to review with IDENTITY_CONFLICT.
+AUTHORITATIVE_SOURCES: Final[frozenset[str]] = frozenset({"enrollment"})
+# Every record pair inside one cluster is re-checked (nickname chains are not transitive). A pair
+# at any of these comparison levels conflicts: the cluster is split at its weakest auto-match
+# links and the pairs go to review with CLUSTER_CONFLICT. Never resolved by picking.
+CLUSTER_CONFLICT_LEVELS: Final[dict[str, frozenset[str]]] = {
+    "first": frozenset({"far"}),
+    "suffix": frozenset({"different"}),
+    "dob": frozenset({"far"}),
+}
+# Rule id on every merge log line for a rules-arm auto-match (score at or above SCORE_HIGH and
+# no guard rail). Split lines carry CLUSTER_CONFLICT.
+AUTO_MATCH_RULE_ID: Final[str] = "AUTO-MATCH-HIGH"
