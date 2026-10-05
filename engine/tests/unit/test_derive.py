@@ -11,7 +11,7 @@ from bob_resolve.load import read_crm, read_enrollment
 from bob_resolve.truth import build_snapshot_answer_key
 from bob_resolve.truth.derive import DERIVED_DEFECTS, DeriveResult, derive_clean_enrollment
 
-AS_OF = date(2026, 10, 5)
+AS_OF = date(2026, 10, 1)
 
 
 @pytest.fixture(scope="module")

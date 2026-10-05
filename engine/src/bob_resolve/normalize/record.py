@@ -13,7 +13,10 @@ from bob_resolve.normalize.phone import normalize_phone
 
 
 class NormalizedRecord(BaseModel):
-    """Comparison-ready values for one source record. The raw record stays the source of truth."""
+    """Comparison-ready values for one source record. The raw record stays the source of truth.
+
+    No household id: in the snapshot it is blank on exactly the copied clients, so it would leak
+    the answer into scoring. Households are built later from accepted matches (PR 6)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -32,7 +35,6 @@ class NormalizedRecord(BaseModel):
     address_line1: str | None
     zip5: str | None
     zip3: str | None
-    household_id: str | None
 
 
 def normalize_record(r: PersonRecord) -> NormalizedRecord:
@@ -53,5 +55,4 @@ def normalize_record(r: PersonRecord) -> NormalizedRecord:
         address_line1=ad.normalize_address(r.address_line1),
         zip5=ad.zip5(r.zip),
         zip3=ad.zip3(r.zip),
-        household_id=r.household_id,
     )

@@ -15,7 +15,7 @@ from bob_resolve.load import read_crm, read_enrollment, to_records
 from bob_resolve.normalize.record import normalize_record
 from bob_resolve.truth import load_hard_case_key
 
-AS_OF = date(2026, 10, 5)
+AS_OF = date(2026, 10, 1)
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
 SIDES = ["snapshot", "derived"]
 

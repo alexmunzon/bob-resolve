@@ -9,7 +9,8 @@ import typer
 from bob_resolve import __version__
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
-from bob_resolve.config import DEFAULT_AS_OF, SHARED_IDS_DEFAULT
+from bob_resolve.config import DEFAULT_AS_OF, SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
+from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth.derive import derive_clean_enrollment
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
@@ -77,4 +78,37 @@ def block(
     typer.echo(f"as of: {day.isoformat()}; blocks over the size cap: {len(rep.dropped_blocks)}")
     for d in rep.dropped_blocks:
         typer.echo(f"  dropped: {d.key} value {d.value_masked} shared by {d.size} records")
+    typer.echo("measured on synthetic data")
+
+
+@app.command()
+def score(
+    enrollment: Annotated[EnrollmentSide, typer.Option(help="Enrollment side to score against")],
+    shared_ids: Annotated[
+        bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")
+    ] = SHARED_IDS_DEFAULT,
+    fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+    as_of: Annotated[
+        datetime, typer.Option(formats=["%Y-%m-%d"], help="Date ages and future DOBs are judged on")
+    ] = _AS_OF_DEFAULT,
+) -> None:
+    """Score candidate pairs with the rules arm and print the SPEC decision 2 targets."""
+    day: date = as_of.date()
+    records, key = load_normalized(fixtures, enrollment, as_of=day)
+    scored = score_candidates(records, candidate_pairs(records, shared_ids), shared_ids)
+    rep = evaluate_scores(scored, key, shared_ids)
+    label = " (derived from the answer key)" if enrollment == "derived" else ""
+    typer.echo(f"enrollment: {enrollment}{label}; shared ids: {'on' if shared_ids else 'off'}")
+    typer.echo(f"cutoffs: high {SCORE_HIGH}, low {SCORE_LOW}")
+    typer.echo(f"auto-merge precision: {rep.auto_merge_precision:.4f}")
+    typer.echo(f"auto-merge count: {rep.auto_match}")
+    typer.echo(f"gray count: {rep.gray}")
+    typer.echo(f"reject count: {rep.auto_reject}")
+    typer.echo(f"recall after review: {rep.recall_after_review:.4f} of {rep.true_pairs} true pairs")
+    typer.echo(f"auto-matches touching an unresolved row: {rep.unresolved_auto_matched}")
+    for rule, n in rep.guard_rail_hits.items():
+        typer.echo(f"  {rule} hits: {n}")
+    for a, b in rep.false_merges[:10]:
+        typer.echo(f"  false merge: {a} {b}")
+    typer.echo(f"as of: {day.isoformat()}")
     typer.echo("measured on synthetic data")
