@@ -98,12 +98,13 @@ def read_enrollment(path: Path, as_of: date) -> pl.DataFrame:
     ).drop("dob_raw", "effective_raw")
 
 
-def to_records(df: pl.DataFrame, source: Source) -> list[PersonRecord]:
-    """Turn a loaded frame into typed records. CRM ids use client_id, enrollment ids the row."""
+def to_records(df: pl.DataFrame, source: Source, row_prefix: str = "") -> list[PersonRecord]:
+    """Turn a loaded frame into typed records. CRM ids use client_id, enrollment ids the row
+    (after `row_prefix`, so a second agency's rows get their own ids, such as enrollment:B-7)."""
     fields = set(PersonRecord.model_fields) - {"record_id", "source", "lineage"}
     out = []
     for row in df.iter_rows(named=True):
-        key = row["client_id"] if source == "crm" else row["row_number"]
+        key = row["client_id"] if source == "crm" else f"{row_prefix}{row['row_number']}"
         values: dict[str, Any] = {k: v for k, v in row.items() if k in fields}
         lineage = Lineage(
             source_file=row["source_file"],

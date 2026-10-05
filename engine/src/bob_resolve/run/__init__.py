@@ -36,7 +36,8 @@ from bob_resolve.config import (
 )
 from bob_resolve.golden import GOLDEN_FIELDS, Resolution, resolve
 from bob_resolve.golden.data import load_people
-from bob_resolve.load import read_enrollment
+from bob_resolve.load import PersonRecord, read_enrollment
+from bob_resolve.load.commons import HELD_OUT_LABEL, ensure_multi_a_b
 from bob_resolve.mergelog import append_entries
 from bob_resolve.normalize.record import normalize_record
 from bob_resolve.queue import (
@@ -48,14 +49,17 @@ from bob_resolve.queue import (
     read_decisions,
 )
 from bob_resolve.score import evaluate_scores, score_candidates
+from bob_resolve.score.rules import ScoredPair
 from bob_resolve.truth import AnswerKey, build_snapshot_answer_key, load_hard_case_key
+from bob_resolve.truth.multi import MultiTruth, build_multi_truth
 
-RunSide = Literal["snapshot", "derived", "hard-cases"]
+RunSide = Literal["snapshot", "derived", "hard-cases", "multi-a-b"]
 LABEL = "measured on synthetic data"
 SIDE_LABEL = {
     "snapshot": "snapshot",
     "derived": "derived from the answer key",
     "hard-cases": "hand-written hard cases",
+    "multi-a-b": HELD_OUT_LABEL,
 }
 
 
@@ -98,6 +102,20 @@ def input_files(fixtures: Path, side: RunSide) -> dict[str, Path]:
             "answer_key": hc / "expected.json",
         }
     snap = fixtures / "agency-a-snapshot"
+    if side == "multi-a-b":  # PR 10: agency A is the snapshot, agency B comes from commons
+        world = ensure_multi_a_b(fixtures)
+        b = world / "agency-b"
+        return {
+            "crm": snap / "clients.csv",
+            "enrollment": snap / "enrollment_export.csv",
+            "policies": snap / "policies.csv",
+            "crm_b": b / "canonical/clients.csv",
+            "enrollment_b": b / "drop/enrollment_export.csv",
+            "policies_b": b / "canonical/policies.csv",
+            "cluster_truth": world / "cluster_truth.json",
+            "pair_truth": world / "pair_truth.jsonl",
+            "must_not_merge": world / "must_not_merge.jsonl",
+        }
     enr = fixtures / "agency-a-derived/enrollment_clean.csv"
     return {
         "crm": snap / "clients.csv",
@@ -111,21 +129,46 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def parts(files: dict[str, Path]) -> list[tuple[Path, Path, Path | None, str]]:
+    """(CRM, enrollment, policies, enrollment row prefix) per agency; agency B rows get "B-"."""
+    out = [(files["crm"], files["enrollment"], files.get("policies"), "")]
+    if "crm_b" in files:
+        out.append((files["crm_b"], files["enrollment_b"], files["policies_b"], "B-"))
+    return out
+
+
+def load_world(files: dict[str, Path], as_of: date) -> tuple[list[PersonRecord], dict[str, date]]:
+    records: list[PersonRecord] = []
+    recency: dict[str, date] = {}
+    for crm, enr, pol, prefix in parts(files):
+        recs, rec = load_people(crm, enr, pol, as_of, prefix)
+        records, recency = records + recs, recency | rec
+    return records, recency
+
+
 def active_policy_owners(files: dict[str, Path], as_of: date) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for _, enr, pol, prefix in parts(files):
+        out |= _owners(enr, pol, prefix, as_of)
+    return out
+
+
+def _owners(enrollment: Path, policies: Path | None, prefix: str, as_of: date) -> dict[str, str]:
     """Records whose merge would move coverage, each mapped to the client id that owns the
     policy: a CRM client with an ACTIVE policy in policies.csv owns it; an approved enrollment
     row is owned by the client whose policy id matches its policy number, or by the row itself
     when no policies file names one (so it counts as a different owner)."""
-    enr = read_enrollment(files["enrollment"], as_of)
+    enr = read_enrollment(enrollment, as_of)
     owner_of: dict[str, str] = {}
     out: dict[str, str] = {}
-    if "policies" in files:
-        pol = pl.read_csv(files["policies"], infer_schema=False)
+    if policies is not None:
+        pol = pl.read_csv(policies, infer_schema=False)
         owner_of = dict(pol.select("policy_id", "client_id").rows())
         out |= {f"crm:{c}": c for c in pol.filter(pl.col("status") == "ACTIVE")["client_id"]}
     for n, s, pn in enr.select("row_number", "application_status", "policy_number").rows():
         if s == "Approved":
-            out[f"enrollment:{n}"] = owner_of.get(pn or "", f"enrollment:{n}")
+            rid = f"enrollment:{prefix}{n}"
+            out[rid] = owner_of.get(pn or "", rid)
     return out
 
 
@@ -230,6 +273,50 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
     }
 
 
+def held_out_report(
+    t: MultiTruth, res: Resolution, scored: list[ScoredPair], missed: tuple[tuple[str, str], ...]
+) -> dict[str, Any]:
+    """PR 10 additions for the held-out world. A commons pair is "found" as in recall after
+    review (merged, or gray with "same person"); "one_person" means the final golden record
+    holds both. A must-not-merge pair is "merged" when one golden person holds any record of
+    each of the two true people (their enrollment rows included, not only the two clients)."""
+    person = {r: p.person_id for p in res.people for r in p.record_ids}
+    golden_of: dict[str, set[str]] = defaultdict(set)  # true person to their golden people
+    for rec, true_person in t.key.person_of.items():
+        golden_of[true_person].add(person.get(rec, rec))
+    gray_same = {
+        (p.a, p.b) for p in scored if p.decision == "GRAY" and p.suggestion == "same_person"
+    }
+    lost = set(missed)
+
+    def recall(pairs: list[tuple[str, str]]) -> dict[str, Any]:
+        found = [x for x in pairs if x not in lost]
+        one = [x for x in pairs if person.get(x[0], x[0]) == person.get(x[1], x[1])]
+        return {"pairs": len(pairs), "found": len(found), "one_person": len(one),
+                "recall": round(len(found) / len(pairs), 6) if pairs else 1.0,
+                "missed_examples": [list(x) for x in sorted(lost & set(pairs))[:3]]}  # fmt: skip
+
+    by_type: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for pair, types in t.commons_pairs.items():
+        for d in types or ("none",):
+            by_type[d].append(pair)
+    mnm: dict[str, dict[str, Any]] = {}
+    for m in t.must_not_merge:
+        row = mnm.setdefault(m.defect_type, {"pairs": 0, "merged": 0, "suggested_same_person": 0,
+                                             "merged_examples": []})  # fmt: skip
+        row["pairs"] += 1
+        if golden_of[t.key.person_of[m.a]] & golden_of[t.key.person_of[m.b]]:
+            row["merged"] += 1
+            row["merged_examples"] = sorted([*row["merged_examples"], [m.a, m.b]])[:3]
+        row["suggested_same_person"] += tuple(sorted((m.a, m.b))) in gray_same
+    return {
+        "label": HELD_OUT_LABEL,
+        "commons_pairs": recall(sorted(t.commons_pairs)),
+        "recall_by_injector": {d: recall(sorted(ps)) for d, ps in sorted(by_type.items())},
+        "must_not_merge": dict(sorted(mnm.items())),
+    }
+
+
 def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     timings: dict[str, float] = {}
     t0 = time.perf_counter()
@@ -240,8 +327,7 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
         t0 = time.perf_counter()
 
     files = input_files(o.fixtures, o.side)
-    records, recency = load_people(files["crm"], files["enrollment"], files.get("policies"),
-                                   o.as_of)  # fmt: skip
+    records, recency = load_world(files, o.as_of)
     norm = [normalize_record(r) for r in records]
     lap("load_and_normalize")
     pairs = candidate_pairs(norm, o.shared_ids)
@@ -260,8 +346,12 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     queue = build_queue(res, scored, by_id, {r.record_id: r for r in norm},
                         owners, o.shared_ids, skip)  # fmt: skip
     lap("review_queue")
+    multi: MultiTruth | None = None
     if o.side == "hard-cases":
         key = load_hard_case_key(files["answer_key"])
+    elif o.side == "multi-a-b":
+        multi = build_multi_truth(o.fixtures, as_of=o.as_of)
+        key = multi.key
     else:
         snap = o.fixtures / "agency-a-snapshot"
         enr = files["enrollment"] if o.side == "derived" else None
@@ -296,6 +386,8 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     }
     lap("scorecard")
     c["scorecard"] = scorecard(o, key, c)
+    if multi is not None:
+        c["scorecard"]["held_out"] = held_out_report(multi, res, scored, c["scores"].missed)
     c["timings"] = None if o.frozen_clock else timings
     return c
 
@@ -451,4 +543,14 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     return folder, kept, cut, len(labels) - len(new)
 
 
-__all__ = ["RunOptions", "RunRefused", "RunSide", "apply_review", "execute", "verify_folder"]
+__all__ = [
+    "RunOptions",
+    "RunRefused",
+    "RunSide",
+    "apply_review",
+    "execute",
+    "input_files",
+    "load_world",
+    "sha256",
+    "verify_folder",
+]

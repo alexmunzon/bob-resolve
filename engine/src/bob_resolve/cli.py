@@ -3,7 +3,7 @@
 import json
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
@@ -17,6 +17,8 @@ from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth.derive import derive_clean_enrollment
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
+AgencyASide = Literal["snapshot", "derived", "hard-cases"]
+World = Literal["agency-a", "multi-a-b"]
 _AS_OF_DEFAULT = datetime.combine(DEFAULT_AS_OF, datetime.min.time())
 app = typer.Typer(help="bob-resolve. Synthetic data only.", no_args_is_help=True)
 
@@ -136,11 +138,15 @@ MaskMbi = Annotated[
 
 @app.command("run")
 def run_command(
-    enrollment: Annotated[
-        RunSide, typer.Option(help="snapshot, derived (from the answer key), or hard-cases")
-    ],
     out: Annotated[Path, typer.Option(help="Runs folder; the run is written to <out>/<run-id>")],
     run_id: Annotated[str, typer.Option(help="Run folder name")],
+    enrollment: Annotated[
+        AgencyASide | None,
+        typer.Option(help="Agency A world: snapshot, derived (from the answer key), or hard-cases"),
+    ] = None,
+    world: Annotated[
+        World, typer.Option(help="agency-a (pick --enrollment) or multi-a-b (held-out, commons)")
+    ] = "agency-a",
     shared_ids: Annotated[
         bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")
     ] = SHARED_IDS_DEFAULT,
@@ -152,9 +158,13 @@ def run_command(
     fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
 ) -> None:
     """Resolve one fixture side end to end and write an immutable run folder. Jev and LLM off."""
+    if (world == "multi-a-b") == (enrollment is not None):
+        typer.echo("Pass --enrollment for --world agency-a, and no --enrollment for multi-a-b.")
+        raise typer.Exit(2)
+    side: RunSide = enrollment or "multi-a-b"
     t, frozen = _now(now)
     opts = RunOptions(
-        fixtures.resolve(), enrollment, shared_ids, out, run_id, as_of.date(), t, frozen,
+        fixtures.resolve(), side, shared_ids, out, run_id, as_of.date(), t, frozen,
         overwrite, parquet, mask_mbi,
     )  # fmt: skip
     try:
@@ -164,6 +174,7 @@ def run_command(
         raise typer.Exit(1) from e
     sc = json.loads((folder / "scorecard.json").read_text())
     typer.echo(f"run {run_id}: {sc['people']} people, {sc['households']} households")
+    typer.echo(f"world: {sc['enrollment_side_label']}")
     typer.echo(f"review queue: {sc['review_queue']}")
     for name, m in sc["metrics"].items():
         typer.echo(f"{name}: {m['value']:.4f} (target {m['target']})")

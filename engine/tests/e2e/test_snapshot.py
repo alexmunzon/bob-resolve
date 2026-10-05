@@ -101,6 +101,25 @@ def test_decision_2_targets_on_every_combination(combo: Any) -> None:
     assert all("mbi" not in m and "notes" not in m for m in run["members"])
 
 
+# PR 10: the phase 1 sides stay as regression tests. These are the review 2 numbers (people,
+# auto-merges, gray, reject); the matcher is frozen, so they must not move.
+REGRESSION = {
+    ("snapshot", True): (2000, 2167, 11, 1278),
+    ("snapshot", False): (2000, 2167, 30, 1259),
+    ("derived", True): (2000, 2167, 11, 1280),
+    ("derived", False): (2025, 2139, 58, 1261),
+}
+
+
+def test_phase_1_numbers_unchanged(combo: Any) -> None:
+    side, ids, run = combo
+    sc = run["scorecard"]
+    rules = sc["per_tier"]["rules"]
+    got = (sc["people"], rules["auto_match"], rules["gray"], rules["auto_reject"])
+    assert got == REGRESSION[(side, ids)]
+    assert "held_out" not in sc
+
+
 def test_example_1_happy_path_snapshot(combo: Any) -> None:
     """People count from the answer key alone: join every true pair except the true pairs the
     queue still holds as gray pairs (a human has not decided them yet). The resulting groups

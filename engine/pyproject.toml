@@ -12,6 +12,10 @@ dependencies = [
     "rich",
     "httpx",
     "jellyfish",
+    # TEMPORARY local pin (PR 10): the commons GitHub repo does not exist yet. When it does, this
+    # becomes git+https://github.com/alexmunzon/agency-data-commons@v0.2.0 (same tag). The space in
+    # "Data intake" must be written %20 in the URL. See docs/pr-10-notes.md.
+    "agency-data-commons @ git+file:///Users/alexmunzon/Data%20intake/agency-data-commons@v0.2.0",
 ]
 
 [project.scripts]
@@ -28,6 +32,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Needed for the direct git reference above (hatchling refuses one otherwise).
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bob_resolve"]
