@@ -1,0 +1,10 @@
+member_first;member_last;Birth Dt (mm/dd/yy);mbi;carrier;contract_plan;effective;agent_npn;application_status;policy_number
+Ellen;Quarry;04/14/52;9AA0AA0AA01;Summit Health Plans;H5371-027-003;20250101;61291817;Approved;HP-001
+Grace;Quarry;04/14/52;9AA0AA0AA02;Summit Health Plans;H5371-027-003;20250101;61291817;Approved;HP-002
+Robert;Hale Sr;06/02/41;9AC0AC0AC01;Meridian Care;H8433-028;20240601;61855700;Approved;HP-003
+Robert;Hale;06/02/68;9AC0AC0AC02;Meridian Care;H8433-028;20260101;61855700;Approved;HP-004
+Martin;Okafor;02/11/49;9AD0AD0AD01;Northwind Health;S6930-027-003;20230501;90949389;Approved;HP-005
+Denise;Okafor;09/30/51;9AD0AD0AD02;Northwind Health;S6930-027-003;20230501;90949389;Approved;HP-006
+Carl;Wexley;03/12/45;9AE0AE0AE01;Harborline;S2040-028;20250401;11576383;Approved;HP-007
+Nina;Dorsey;11/27/58;9AE0AE0AE02;Harborline;S2040-028;20250401;11576383;Approved;HP-008
+David;Lindqvist;08/19/55;9AF0AF0AF01;Summit Health Plans;S5808-002;20250401;99847493;Approved;HP-009

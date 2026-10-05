@@ -1,0 +1,10 @@
+client_id,first_name,last_name,dob,phone,email,address_line1,city,state,zip,mbi,household_id,notes
+HC-001,Ellen,Quarry,1952-04-14,(555) 555-0101,ellen.quarry@example.com,12 Sample Lane,Testville,OH,43001,9AA0AA0AA01,HH-01,
+HC-002,Grace,Quarry,1952-04-14,(555) 555-0101,grace.quarry@example.com,12 Sample Lane,Testville,OH,43001,9AA0AA0AA02,HH-01,
+HC-003,Robert,Hale Sr,1941-06-02,(555) 555-0102,,40 Fixture Road,Mocktown,PA,17001,9AC0AC0AC01,HH-02,
+HC-004,Robert,Hale Jr,1968-06-02,(555) 555-0102,,40 Fixture Road,Mocktown,PA,17001,9AC0AC0AC02,HH-02,
+HC-005,Martin,Okafor,1949-02-11,(555) 555-0103,okafor.family@example.com,7 Placeholder Court,Demo City,AZ,85001,9AD0AD0AD01,HH-03,
+HC-006,Denise,Okafor,1951-09-30,(555) 555-0103,okafor.family@example.com,7 Placeholder Court,Demo City,AZ,85001,9AD0AD0AD02,HH-03,
+HC-007,Carl,Wexley,1945-03-12,(555) 555-0104,carl.wexley@example.com,88 Example Street,Sampleburg,TX,75001,9AE0AE0AE01,HH-04,
+HC-008,Nina,Dorsey,1958-11-27,(555) 555-0105,nina.dorsey@example.com,301 Stub Avenue,Sampleburg,TX,75002,9AE0AE0AE01,HH-05,
+HC-009,Dave,Lindqvist,1955-08-19,(555) 555-0106,dave.lindqvist@example.com,5 Mock Way,Fakeport,ME,04001,9AF0AF0AF01,HH-06,

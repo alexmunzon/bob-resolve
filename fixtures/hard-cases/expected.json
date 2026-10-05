@@ -1,0 +1,28 @@
+{
+  "description": "Hand-written synthetic hard cases for SPEC section 9 examples 4 to 7, plus example 3 because the snapshot cannot produce it. Record ids: crm:<client_id> and enrollment:<1-based data row>.",
+  "people": {
+    "HC-001": ["crm:HC-001", "enrollment:1"],
+    "HC-002": ["crm:HC-002", "enrollment:2"],
+    "HC-003": ["crm:HC-003", "enrollment:3"],
+    "HC-004": ["crm:HC-004", "enrollment:4"],
+    "HC-005": ["crm:HC-005", "enrollment:5"],
+    "HC-006": ["crm:HC-006", "enrollment:6"],
+    "HC-007": ["crm:HC-007", "enrollment:7"],
+    "HC-008": ["crm:HC-008", "enrollment:8"],
+    "HC-009": ["crm:HC-009", "enrollment:9"]
+  },
+  "must_not_merge": [
+    {"example": 4, "a": "crm:HC-001", "b": "crm:HC-002", "reason": "Twins: same last name, DOB, address and phone, but different first names and different MBIs."},
+    {"example": 4, "a": "enrollment:1", "b": "enrollment:2", "reason": "Twins on the enrollment side: different first names and different MBIs."},
+    {"example": 5, "a": "crm:HC-003", "b": "crm:HC-004", "reason": "Robert Hale Sr and Robert Hale Jr: different generational suffix, DOBs 27 years apart."},
+    {"example": 5, "a": "crm:HC-003", "b": "enrollment:4", "reason": "Enrollment drops the Jr suffix, but the DOB is 27 years from Sr's and the MBI is Jr's."},
+    {"example": 6, "a": "crm:HC-005", "b": "crm:HC-006", "reason": "Spouses who share a phone and an email: different first names and DOBs. Shared contact alone never merges."},
+    {"example": 7, "a": "crm:HC-007", "b": "crm:HC-008", "reason": "Same MBI on both CRM rows, but DOBs are not within one edit and names differ: a pasted MBI, IDENTITY_CONFLICT."},
+    {"example": 7, "a": "crm:HC-008", "b": "enrollment:7", "reason": "Nina's CRM row carries Carl's MBI; Carl's enrollment row must not pull her in."}
+  ],
+  "same_person": [
+    {"example": 3, "a": "crm:HC-009", "b": "enrollment:9", "reason": "CRM nickname Dave, enrollment legal name David, same DOB and MBI."},
+    {"example": 5, "a": "crm:HC-004", "b": "enrollment:4", "reason": "Robert Hale Jr: enrollment drops the suffix, DOB and MBI match."},
+    {"example": 7, "a": "crm:HC-008", "b": "enrollment:8", "reason": "Nina Dorsey: same name and DOB; the enrollment row has her real MBI."}
+  ]
+}
