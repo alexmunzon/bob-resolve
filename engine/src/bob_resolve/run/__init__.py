@@ -25,6 +25,7 @@ from bob_resolve.cluster import components
 from bob_resolve.config import (
     GRAY_SAME_PERSON_MIN,
     MAX_BLOCK_SIZE,
+    PUBLIC_FOLDER_NAMES,
     RUN_JEV_MODE,
     RUN_LLM_MODE,
     SCORE_HIGH,
@@ -38,7 +39,7 @@ from bob_resolve.golden.data import load_people
 from bob_resolve.load import read_enrollment
 from bob_resolve.mergelog import append_entries
 from bob_resolve.normalize.record import normalize_record
-from bob_resolve.queue import QueueItem, ReviewDecision, build_queue, read_decisions
+from bob_resolve.queue import QueueItem, ReviewDecision, build_queue, mask_mbi, read_decisions
 from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth import AnswerKey, build_snapshot_answer_key, load_hard_case_key
 
@@ -67,6 +68,7 @@ class RunOptions:
     frozen_clock: bool  # True with --now: timings are not recorded, so output is byte-identical
     overwrite: bool = False
     parquet: bool = True
+    mask_mbi: bool = False  # mask the MBI in people.csv to its last 4 (required under public/)
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,7 @@ class Parent:
     log: bytes
     decisions: tuple[ReviewDecision, ...]
     forced: frozenset[tuple[str, str]] = field(default_factory=frozenset)
+    new: frozenset[tuple[str, str]] = field(default_factory=frozenset)  # this apply's pairs
 
 
 def input_files(fixtures: Path, side: RunSide) -> dict[str, Path]:
@@ -101,18 +104,21 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def active_policy_records(files: dict[str, Path], as_of: date) -> set[str]:
-    """Records whose merge would move coverage: an approved enrollment row, or a CRM client with
-    an ACTIVE policy in policies.csv."""
+def active_policy_owners(files: dict[str, Path], as_of: date) -> dict[str, str]:
+    """Records whose merge would move coverage, each mapped to the client id that owns the
+    policy: a CRM client with an ACTIVE policy in policies.csv owns it; an approved enrollment
+    row is owned by the client whose policy id matches its policy number, or by the row itself
+    when no policies file names one (so it counts as a different owner)."""
     enr = read_enrollment(files["enrollment"], as_of)
-    out = {
-        f"enrollment:{n}"
-        for n, s in enr.select("row_number", "application_status").rows()
-        if s == "Approved"
-    }
+    owner_of: dict[str, str] = {}
+    out: dict[str, str] = {}
     if "policies" in files:
         pol = pl.read_csv(files["policies"], infer_schema=False)
-        out |= {f"crm:{c}" for c in pol.filter(pl.col("status") == "ACTIVE")["client_id"]}
+        owner_of = dict(pol.select("policy_id", "client_id").rows())
+        out |= {f"crm:{c}": c for c in pol.filter(pl.col("status") == "ACTIVE")["client_id"]}
+    for n, s, pn in enr.select("row_number", "application_status", "policy_number").rows():
+        if s == "Approved":
+            out[f"enrollment:{n}"] = owner_of.get(pn or "", f"enrollment:{n}")
     return out
 
 
@@ -133,7 +139,7 @@ def households(res: Resolution, crm_household: dict[str, str]) -> list[dict[str,
     return out
 
 
-def people_frame(res: Resolution, household_of: dict[str, str]) -> pl.DataFrame:
+def people_frame(res: Resolution, household_of: dict[str, str], mask: bool) -> pl.DataFrame:
     rows = []
     for p in res.people:
         row: dict[str, Any] = {
@@ -147,6 +153,8 @@ def people_frame(res: Resolution, household_of: dict[str, str]) -> pl.DataFrame:
             s = p.fields[f]
             row |= {f: s.value, f"{f}_source": s.record_id, f"{f}_source_file": s.source_file,
                     f"{f}_row": s.row_number, f"{f}_rule": s.rule, f"{f}_tier": s.tier}  # fmt: skip
+        if mask:
+            row["mbi"] = mask_mbi(row["mbi"])
         rows.append(row)
     schema = {k: pl.Int64 if k.endswith("_row") else pl.String for k in rows[0]} if rows else None
     return pl.DataFrame(rows, schema=schema)
@@ -241,7 +249,7 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     skip = {d.item_id for d in parent.decisions} if parent else set()
     by_id = {r.record_id: r for r in records}
     queue = build_queue(res, scored, by_id, {r.record_id: r for r in norm},
-                        active_policy_records(files, o.as_of), o.shared_ids, skip)  # fmt: skip
+                        active_policy_owners(files, o.as_of), o.shared_ids, skip)  # fmt: skip
     lap("review_queue")
     if o.side == "hard-cases":
         key = load_hard_case_key(files["answer_key"])
@@ -275,7 +283,7 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
     res: Resolution = c["res"]
     hh = c["households"]
     household_of = {p: h["household_id"] for h in hh for p in h["person_ids"]}
-    people = people_frame(res, household_of)
+    people = people_frame(res, household_of, o.mask_mbi)
     people.write_csv(d / "people.csv")
     if o.parquet:
         people.write_parquet(d / "people.parquet")
@@ -293,16 +301,20 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
         )
     _json(c["scorecard"], d / "scorecard.json")
     off = {"mode": "off", "calls": 0, "cost_usd": 0.0}
+    human = {(e.a, e.b) for e in res.log if e.action == "merge" and e.tier == "review"}
+    new = parent.new if parent else frozenset()
     files: dict[str, Path] = c["files"]
     _json(
         {
             "label": LABEL,
             "run_id": o.run_id,
             "parent_run_id": parent.run_id if parent else None,
-            "decisions_applied": len(parent.forced) if parent else 0,
+            "decisions_applied": len(new & human),
+            "decisions_cut": [list(p) for p in sorted(new - human)],
+            "review_pairs": [list(p) for p in sorted(human)],
             "created_at": o.now.isoformat(),
             "as_of": o.as_of.isoformat(),
-            "args": {"enrollment": o.side, "shared_ids": o.shared_ids},
+            "args": {"enrollment": o.side, "shared_ids": o.shared_ids, "mask_mbi": o.mask_mbi},
             "inputs": [
                 {"role": role, "path": p.relative_to(o.fixtures).as_posix(), "sha256": sha256(p)}
                 for role, p in files.items()
@@ -332,6 +344,8 @@ def execute(o: RunOptions, parent: Parent | None = None) -> Path:
     """Write into a temp folder, then rename into place, so a failed run leaves nothing behind
     and --overwrite keeps the old run until the new one is complete."""
     final = o.out / o.run_id
+    if not o.mask_mbi and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
+        raise RunRefused(f"{o.out} is a public folder; pass --mask-mbi so no full MBI lands there.")
     if final.exists() and not o.overwrite:
         raise RunRefused(
             f"{final} already exists. Runs are immutable; pass --overwrite to redo it."
@@ -362,11 +376,23 @@ def verify_folder(run: Path) -> dict[str, Any]:
     return m
 
 
-def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, int]:
+def refuse_parent_overlap(old: Path, new: Path, old_id: str, new_id: str) -> None:
+    """The new run may never replace or sit inside the old one: compare real paths (symlinks
+    followed), so --overwrite can never remove the parent run or a folder that holds it."""
+    a, b = old.resolve(), new.resolve()
+    if a == b or b in a.parents or a in b.parents:
+        raise RunRefused(f"The new run folder {new} overlaps its parent run {old}. Pick another.")
+    if new_id == old_id:
+        raise RunRefused(f"The new run id equals its parent's ({old_id}). Pick another.")
+
+
+def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, int, int]:
     """New run from an old run plus human labels. A "same person" label on a gray pair becomes
     a merge with tier "review"; every other label is stored in decisions.jsonl, not applied.
-    Returns the new folder, labels applied, labels stored only."""
+    Earlier review merges and labels carry forward. Returns the new folder, merges kept, merges
+    cut again by the cluster check, labels stored only."""
     m = verify_folder(old)
+    refuse_parent_overlap(old, o.out / o.run_id, m["run_id"], o.run_id)
     for i in m["inputs"]:
         if sha256(o.fixtures / i["path"]) != i["sha256"]:
             raise RunRefused(f"Input {i['path']} changed since run {m['run_id']}.")
@@ -377,17 +403,24 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     labels = read_decisions(decisions)
     if unknown := [d.item_id for d in labels if d.item_id not in items]:
         raise RunRefused(f"Decisions name items not in run {m['run_id']}: {unknown[:5]}")
-    forced = frozenset(
+    new = frozenset(
         (items[d.item_id].pairs[0].a, items[d.item_id].pairs[0].b)
         for d in labels
         if d.decision == "same_person" and items[d.item_id].kind == "gray_pair"
     )
-    parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(), tuple(labels), forced)
+    earlier = old / "decisions.jsonl"
+    carried = tuple(read_decisions(earlier)) if earlier.exists() else ()
+    kept_before = frozenset((a, b) for a, b in m.get("review_pairs", []))
+    parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(),
+                    (*carried, *labels), kept_before | new, new)  # fmt: skip
     side: RunSide = m["args"]["enrollment"]
     opts = RunOptions(o.fixtures, side, m["args"]["shared_ids"], o.out, o.run_id,
                       date.fromisoformat(m["as_of"]), o.now, o.frozen_clock, o.overwrite,
-                      o.parquet)  # fmt: skip
-    return execute(opts, parent), len(forced), len(labels) - len(forced)
+                      o.parquet, m["args"].get("mask_mbi", False))  # fmt: skip
+    folder = execute(opts, parent)
+    nm = json.loads((folder / "manifest.json").read_text())
+    kept, cut = nm["decisions_applied"], len(nm["decisions_cut"])
+    return folder, kept, cut, len(labels) - len(new)
 
 
 __all__ = ["RunOptions", "RunRefused", "RunSide", "apply_review", "execute", "verify_folder"]

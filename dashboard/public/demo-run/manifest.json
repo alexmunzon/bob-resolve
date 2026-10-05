@@ -1,11 +1,13 @@
 {
   "args": {
     "enrollment": "derived",
+    "mask_mbi": true,
     "shared_ids": false
   },
   "as_of": "2026-10-01",
   "created_at": "2026-10-01T12:00:00+00:00",
   "decisions_applied": 0,
+  "decisions_cut": [],
   "inputs": [
     {
       "path": "agency-a-snapshot/clients.csv",
@@ -47,11 +49,12 @@
   "outputs": {
     "households.json": "225d94f118c6105869d00e9f3a150aeab3b3e4e5a4a8ca61766f7cab0fdbe08d",
     "merge_log.jsonl": "68daab820138a93096f19260a25d701bf2f2661fa33ee49f1abe7918f69a5128",
-    "people.csv": "2b62c0f9257b4cfc6e0df700da4ed3b7e60d245e9d135953d7fc0e1db272c5e2",
-    "review_queue.jsonl": "fe9cf2d2f2a5aa3f30e0c82cfc6341a85126d29461442caf8ae32942aeeb39aa",
-    "scorecard.json": "1a5477b37c13228461ff4295a84875ffc8cc4e22cdd7bdd0fb1227bc6d87e5bc"
+    "people.csv": "0ef20c2a44279e5894ddc68724e922f5c563568d10e51c9ba843c8daf57e9816",
+    "review_queue.jsonl": "397d3d133b10f3b5f2e83bd66a6bdaed6c5621e89479b1a6e80976fe973d7536",
+    "scorecard.json": "8913e71774a160d162225743a895ba824ce2c8531c85e7d8b65697bd107ce348"
   },
   "parent_run_id": null,
+  "review_pairs": [],
   "run_id": "demo-run",
   "thresholds": {
     "gray_same_person_min": 0.545,
@@ -61,7 +64,7 @@
   },
   "timings_ms": null,
   "versions": {
-    "engine": "0.0.0",
+    "engine": "0.1.0",
     "polars": "1.44.2",
     "python": "3.12"
   }
