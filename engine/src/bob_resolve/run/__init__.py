@@ -39,7 +39,14 @@ from bob_resolve.golden.data import load_people
 from bob_resolve.load import read_enrollment
 from bob_resolve.mergelog import append_entries
 from bob_resolve.normalize.record import normalize_record
-from bob_resolve.queue import QueueItem, ReviewDecision, build_queue, mask_mbi, read_decisions
+from bob_resolve.queue import (
+    QueueItem,
+    ReviewDecision,
+    build_queue,
+    mask_mbi,
+    minimize,
+    read_decisions,
+)
 from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth import AnswerKey, build_snapshot_answer_key, load_hard_case_key
 
@@ -184,6 +191,7 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
         "people": len(res.people),
         "households": len(c["households"]),
         "unidentifiable": len(res.unidentifiable),
+        "unidentifiable_records": c["unidentifiable_records"],
         "people_left_split": sum(len(v) - 1 for v in pieces.values()),
         "people_holding_two_true_people": sum(
             len({truth.get(r) for r in p.record_ids}) > 1 for p in res.people
@@ -248,8 +256,9 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     lap("cluster_and_golden")
     skip = {d.item_id for d in parent.decisions} if parent else set()
     by_id = {r.record_id: r for r in records}
+    owners = active_policy_owners(files, o.as_of)
     queue = build_queue(res, scored, by_id, {r.record_id: r for r in norm},
-                        active_policy_owners(files, o.as_of), o.shared_ids, skip)  # fmt: skip
+                        owners, o.shared_ids, skip)  # fmt: skip
     lap("review_queue")
     if o.side == "hard-cases":
         key = load_hard_case_key(files["answer_key"])
@@ -263,6 +272,20 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
         "res": res,
         "queue": queue,
         "n_records": len(records),
+        "unidentifiable_records": [
+            {
+                "record_id": r,
+                "source_file": by_id[r].lineage.source_file,
+                "row_number": by_id[r].lineage.row_number,
+            }
+            for r in res.unidentifiable
+        ],  # fmt: skip
+        "members": [  # PR 9: the records behind each person of two or more, for the Clusters page
+            {"person_id": p.person_id, **minimize(by_id[r], owners).model_dump()}
+            for p in res.people
+            if len(p.record_ids) > 1
+            for r in p.record_ids
+        ],  # fmt: skip
         "households": households(res, crm_hh),
         "blocking": evaluate(
             pairs, key, len(norm), o.shared_ids, tuple(dropped_blocks(norm, o.shared_ids))
@@ -294,6 +317,9 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
     log.write_bytes(parent.log if parent else b"")
     seen = {(e["action"], e["a"], e["b"]) for e in map(json.loads, log.read_text().splitlines())}
     append_entries(log, [e for e in res.log if (e.action, e.a, e.b) not in seen])
+    (d / "members.jsonl").write_text(
+        "".join(json.dumps(m, sort_keys=True) + "\n" for m in c["members"]), encoding="utf-8"
+    )
     (d / "review_queue.jsonl").write_text(
         "".join(i.model_dump_json() + "\n" for i in c["queue"]), encoding="utf-8"
     )

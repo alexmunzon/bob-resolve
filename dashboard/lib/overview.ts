@@ -21,11 +21,14 @@ const words = (key: string) => key.replace(/_/g, " ").replace(/^./, (c) => c.toU
 
 function bySource(run: Run): Row[] {
   const counts: Record<string, number> = {};
-  for (const person of run.people) {
-    for (const id of person.recordIds) {
-      const source = id.split(":")[0];
-      counts[source] = (counts[source] ?? 0) + 1;
-    }
+  // Unidentifiable records count too: the scorecard names each one's record id (PR 9).
+  const ids = [
+    ...run.people.flatMap((p) => p.recordIds),
+    ...(run.scorecard.unidentifiable_records ?? []).map((u) => u.record_id),
+  ];
+  for (const id of ids) {
+    const source = id.split(":")[0];
+    counts[source] = (counts[source] ?? 0) + 1;
   }
   return Object.entries(counts)
     .sort(([a], [b]) => a.localeCompare(b))

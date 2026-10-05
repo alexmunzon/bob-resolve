@@ -26,7 +26,8 @@ def test_run_is_byte_identical_and_refuses_to_overwrite(tmp_path: Path) -> None:
     assert run(tmp_path, "a")[0] == 0 and run(tmp_path / "again", "a")[0] == 0
     a = files(tmp_path / "a")
     assert set(a) == {"manifest.json", "people.csv", "people.parquet", "households.json",
-                      "merge_log.jsonl", "review_queue.jsonl", "scorecard.json"}  # fmt: skip
+                      "members.jsonl", "merge_log.jsonl", "review_queue.jsonl",
+                      "scorecard.json"}  # fmt: skip
     assert files(tmp_path / "again" / "a") == a
     code, out = run(tmp_path, "a")
     assert code == 1 and "immutable" in out and files(tmp_path / "a") == a

@@ -75,5 +75,52 @@
   },
   "shared_ids": false,
   "true_pairs": 2167,
-  "unidentifiable": 9
+  "unidentifiable": 9,
+  "unidentifiable_records": [
+    {
+      "record_id": "enrollment:1359",
+      "row_number": 1359,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:1464",
+      "row_number": 1464,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:1628",
+      "row_number": 1628,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:1847",
+      "row_number": 1847,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:250",
+      "row_number": 250,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:278",
+      "row_number": 278,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:332",
+      "row_number": 332,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:559",
+      "row_number": 559,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    },
+    {
+      "record_id": "enrollment:915",
+      "row_number": 915,
+      "source_file": "agency-a-derived/enrollment_clean.csv"
+    }
+  ]
 }

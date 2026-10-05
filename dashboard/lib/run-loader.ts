@@ -23,6 +23,7 @@ export interface Manifest {
   timings_ms: Record<string, number> | null;
   decisions_applied: number;
   versions: { engine: string };
+  thresholds?: { score_high: number; score_low: number };
 }
 
 export interface Scorecard {
@@ -38,11 +39,58 @@ export interface Scorecard {
   metrics: Record<"blocking_recall" | "auto_merge_precision" | "recall_after_review", Metric>;
   per_tier: { jev: { calls: number; mode: Mode }; llm: { calls: number; mode: Mode } };
   review_queue: { size: number; by_severity: Record<string, number>; by_reason: Record<string, number> };
+  unidentifiable_records?: { record_id: string; source_file: string; row_number: number }[];
 }
 
-export interface QueueItem { item_id: string; reason: string; severity: "high" | "medium"; suggestion: string }
-export interface Person { personId: string; householdId: string; recordIds: string[] }
-export interface MergeLogSummary { lines: number; merges: Record<string, number> }
+/** A record as the reviewer sees it: minimized, MBI masked to the last 4. */
+export interface RecordView {
+  record_id: string;
+  source: string;
+  source_file: string;
+  row_number: number;
+  first_name: string | null;
+  last_name: string | null;
+  dob: string | null;
+  address_line1: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phone: string | null;
+  email: string | null;
+  mbi_masked: string | null;
+  active_policy: boolean;
+}
+export type Evidence = Record<string, number | string | boolean | null>;
+export interface PairEvidence { a: string; b: string; score: number; decision: string; evidence: Evidence }
+export interface QueueItem {
+  item_id: string;
+  kind: string;
+  reason: string;
+  severity: "high" | "medium";
+  suggestion: string;
+  rule_ids: string[];
+  cutoff_distance: number;
+  already_one_person: boolean;
+  records: RecordView[];
+  pairs: PairEvidence[];
+  detail: string;
+}
+export const GOLDEN_FIELDS = [
+  "first_name", "last_name", "suffix", "dob", "mbi", "address_line1", "city", "state", "zip", "phone", "email",
+] as const;
+export type GoldenField = (typeof GOLDEN_FIELDS)[number];
+export interface GoldenValue { value: string; source: string; sourceFile: string; row: string; rule: string; tier: string }
+export interface Person {
+  personId: string;
+  householdId: string;
+  recordIds: string[];
+  aliases: string[];
+  fields: Record<GoldenField, GoldenValue>;
+}
+export interface MergeLine { line: number; action: string; a: string; b: string; tier: string; score: number; rule_ids: string[] }
+export interface MergeLogSummary { lines: number; merges: Record<string, number>; entries: MergeLine[] }
+export interface Household { household_id: string; person_ids: string[] }
+export type Member = RecordView & { person_id: string };
 
 export interface Run {
   manifest: Manifest;
@@ -50,6 +98,8 @@ export interface Run {
   people: Person[];
   queue: QueueItem[];
   mergeLog: MergeLogSummary;
+  households: Household[];
+  members: Member[];
 }
 
 export type RunFiles = Record<keyof typeof FILE_NAMES, string>;
@@ -60,6 +110,8 @@ export const FILE_NAMES = {
   people: "people.csv",
   queue: "review_queue.jsonl",
   mergeLog: "merge_log.jsonl",
+  households: "households.json",
+  members: "members.jsonl",
 } as const;
 
 const SEVERITIES = ["high", "medium"];
@@ -122,13 +174,29 @@ function parsePeople(text: string): Person[] {
     check(i >= 0, where, `missing column ${name}`);
     return i;
   };
-  const [pid, hid, rids, mbi] = [at("person_id"), at("household_id"), at("record_ids"), at("mbi")];
+  const [pid, hid, rids, mbi, alias] = [at("person_id"), at("household_id"), at("record_ids"), at("mbi"), at("aliases")];
+  const cell = (cells: string[], name: string) => cells[at(name)];
   return rows.map((line, n) => {
     const cells = splitCsvLine(line);
     check(cells.length === cols.length, `${where} row ${n + 1}`, "wrong number of columns");
     check(cells[mbi] === "" || MASKED_MBI.test(cells[mbi]), `${where} row ${n + 1}`, "MBI is not masked");
-    return { personId: cells[pid], householdId: cells[hid], recordIds: cells[rids].split(";") };
+    const fields = Object.fromEntries(
+      GOLDEN_FIELDS.map((f) => [f, {
+        value: cell(cells, f), source: cell(cells, `${f}_source`), sourceFile: cell(cells, `${f}_source_file`),
+        row: cell(cells, `${f}_row`), rule: cell(cells, `${f}_rule`), tier: cell(cells, `${f}_tier`),
+      }]),
+    ) as Record<GoldenField, GoldenValue>;
+    return {
+      personId: cells[pid], householdId: cells[hid], recordIds: cells[rids].split(";"),
+      aliases: cells[alias] ? cells[alias].split(";") : [], fields,
+    };
   });
+}
+
+/** A record may carry only a masked MBI: never an `mbi` field, never more than the last 4. */
+function maskedOnly(record: Record<string, unknown>, where: string): void {
+  check(!("mbi" in record), where, "a full MBI field is not allowed");
+  check(record.mbi_masked == null || MASKED_MBI.test(String(record.mbi_masked)), where, "MBI is not masked");
 }
 
 function usage(value: unknown, where: string): void {
@@ -154,18 +222,24 @@ export function parseRun(files: RunFiles): Run {
     const where = `${FILE_NAMES.queue} line ${i + 1}`;
     needs(item, where, ["item_id", "reason", "severity", "suggestion"]);
     check(SEVERITIES.includes(item.severity as string), where, `unknown severity ${String(item.severity)}`);
-    for (const record of (item.records as Record<string, unknown>[] | undefined) ?? []) {
-      check(!("mbi" in record), where, "a full MBI field is not allowed");
-      check(record.mbi_masked == null || MASKED_MBI.test(String(record.mbi_masked)), where, "MBI is not masked");
-    }
+    for (const record of (item.records as Record<string, unknown>[] | undefined) ?? []) maskedOnly(record, where);
     return item as unknown as QueueItem;
   });
+  const members = jsonLines(files.members, FILE_NAMES.members).map((m, i) => {
+    const where = `${FILE_NAMES.members} line ${i + 1}`;
+    needs(m, where, ["person_id", "record_id", "source_file", "row_number"]);
+    maskedOnly(m, where);
+    return m as unknown as Member;
+  });
+  const hh = parseJson(files.households, FILE_NAMES.households);
+  check(Array.isArray(hh.households), FILE_NAMES.households, "missing households list");
 
   const merges: Record<string, number> = {};
   const log = jsonLines(files.mergeLog, FILE_NAMES.mergeLog);
   for (const line of log) {
     if (line.action === "merge") merges[String(line.tier)] = (merges[String(line.tier)] ?? 0) + 1;
   }
+  const entries = log.map((e, i) => ({ ...(e as unknown as MergeLine), line: i + 1 }));
 
   const people = parsePeople(files.people);
   const card = scorecard as unknown as Scorecard;
@@ -177,6 +251,8 @@ export function parseRun(files: RunFiles): Run {
     scorecard: card,
     people,
     queue,
-    mergeLog: { lines: log.length, merges },
+    mergeLog: { lines: log.length, merges, entries },
+    households: hh.households as Household[],
+    members,
   };
 }

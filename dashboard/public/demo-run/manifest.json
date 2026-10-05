@@ -48,10 +48,11 @@
   },
   "outputs": {
     "households.json": "225d94f118c6105869d00e9f3a150aeab3b3e4e5a4a8ca61766f7cab0fdbe08d",
+    "members.jsonl": "d602b3e5c32dcc0635f940a1d413476b89589358a952baa7c894c89d9228cfc6",
     "merge_log.jsonl": "68daab820138a93096f19260a25d701bf2f2661fa33ee49f1abe7918f69a5128",
     "people.csv": "0ef20c2a44279e5894ddc68724e922f5c563568d10e51c9ba843c8daf57e9816",
     "review_queue.jsonl": "a8920635e08a5259bb9e1d27a03f065fbb4e71084be15d8009f1ef52713c85c0",
-    "scorecard.json": "7fd1444df5611fd7c67576c1c6a93f1336b13748099891173814da85a4650a85"
+    "scorecard.json": "9a0f4dc85a0a87a9ffe0945d9857e2498533477384f0f6e8ec7d39e8e4be43e2"
   },
   "parent_run_id": null,
   "review_pairs": [],

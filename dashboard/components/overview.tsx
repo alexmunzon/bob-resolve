@@ -54,7 +54,7 @@ export function Overview({ data: d }: { data: OverviewData }) {
       </header>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="col-span-2 lg:col-span-1">
-          <Tile label="Records in" value={d.recordsIn} context={`${sources}, plus ${count(d.unidentifiable)} unidentifiable`} />
+          <Tile label="Records in" value={d.recordsIn} context={`${sources}, including ${count(d.unidentifiable)} unidentifiable`} />
         </div>
         <Tile label="People out" value={d.people} context={`${count(d.leftSplit)} may still be split, see the review queue`} />
         <Tile label="Households" value={d.households} context="Linked by the agency's own household ids" />

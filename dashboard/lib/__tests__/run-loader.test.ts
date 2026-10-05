@@ -36,6 +36,16 @@ describe("parseRun", () => {
     expect(() => parseRun({ ...files, people })).toThrow(/people\.csv row 1: MBI is not masked/);
     const queue = files.queue.replace(/"mbi_masked":"\*{7}([A-Z0-9]{4})"/, '"mbi_masked":"1EG4TE5$1"');
     expect(() => parseRun({ ...files, queue })).toThrow(/review_queue\.jsonl line 1: MBI is not masked/);
+    const members = files.members.replace(/"mbi_masked": "\*{7}([A-Z0-9]{4})"/, '"mbi_masked": "1EG4TE5$1"');
+    expect(() => parseRun({ ...files, members })).toThrow(/members\.jsonl line 1: MBI is not masked/);
+    const full = files.members.replace('"person_id"', '"mbi": "1EG4TE5MK73", "person_id"');
+    expect(() => parseRun({ ...files, members: full })).toThrow(/members\.jsonl line 1: a full MBI field/);
+  });
+
+  it("lists every unidentifiable record with its source file and row", async () => {
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    expect(run.scorecard.unidentifiable_records).toHaveLength(run.scorecard.unidentifiable);
+    expect(run.scorecard.unidentifiable_records![0]).toMatchObject({ source_file: expect.stringMatching(/\.csv$/), row_number: expect.any(Number) });
   });
 
   it("refuses a scorecard without the synthetic label, and files from different runs", async () => {

@@ -25,7 +25,7 @@ describe("Overview", () => {
       screen.getByRole("heading", { level: 1, name: "How many real people are in this book, and how sure are we?" }),
     ).toBeInTheDocument();
     expect(tile("Records in").getByText(count(sc.records_in))).toBeInTheDocument();
-    expect(tile("Records in").getByText("CRM 2,040, Enrollment 1,838, plus 9 unidentifiable")).toBeInTheDocument();
+    expect(tile("Records in").getByText("CRM 2,040, Enrollment 1,847, including 9 unidentifiable")).toBeInTheDocument();
     expect(tile("People out").getByText(count(sc.people))).toBeInTheDocument();
     expect(tile("Households").getByText(count(sc.households))).toBeInTheDocument();
     expect(tile("Unidentifiable rows").getByText(String(sc.unidentifiable))).toBeInTheDocument();
