@@ -7,6 +7,7 @@ its original. The person id is the original client_id. Rows that do not resolve 
 """
 
 import json
+from datetime import date
 from itertools import combinations
 from pathlib import Path
 from typing import Literal
@@ -43,6 +44,23 @@ class AnswerKey(BaseModel):
     clusters: dict[str, tuple[str, ...]]
     unresolved: tuple[UnresolvedRow, ...] = ()
     must_not_merge: tuple[PairLabel, ...] = ()
+    # Enrollment rows whose raw line hash repeats an earlier row. Reported only: the hash stays in
+    # lineage and is never a matching feature (it is not on NormalizedRecord).
+    exact_duplicate_rows: int = 0
+
+    @property
+    def unresolved_ids(self) -> frozenset[str]:
+        """Record ids with no person. Metrics exclude these instead of looking them up."""
+        return frozenset(u.record_id for u in self.unresolved)
+
+    def summary(self) -> dict[str, int]:
+        return {
+            "people": len(self.clusters),
+            "records": sum(len(r) for r in self.clusters.values()),
+            "pairs": len(self.pairs),
+            "unresolved_rows": len(self.unresolved),
+            "exact_duplicate_rows": self.exact_duplicate_rows,
+        }
 
     @property
     def person_of(self) -> dict[str, str]:
@@ -84,11 +102,13 @@ def _copy_roots(ground_truth: Path, client_ids: set[str]) -> dict[str, str]:
     return roots
 
 
-def build_snapshot_answer_key(snapshot_dir: Path, enrollment_csv: Path | None = None) -> AnswerKey:
+def build_snapshot_answer_key(
+    snapshot_dir: Path, enrollment_csv: Path | None = None, *, as_of: date
+) -> AnswerKey:
     """Build the key. `enrollment_csv` swaps in another enrollment side with the same rows, such
     as fixtures/agency-a-derived/enrollment_clean.csv; the default is the snapshot export."""
-    crm = read_crm(snapshot_dir / "clients.csv")
-    enr = read_enrollment(enrollment_csv or snapshot_dir / "enrollment_export.csv")
+    crm = read_crm(snapshot_dir / "clients.csv", as_of)
+    enr = read_enrollment(enrollment_csv or snapshot_dir / "enrollment_export.csv", as_of)
     policies = pl.read_csv(snapshot_dir / "policies.csv", infer_schema=False)
     owners = policies.group_by("policy_id").agg(pl.col("client_id").unique())
     owner_of = dict(zip(owners["policy_id"], owners["client_id"].to_list(), strict=True))
@@ -114,7 +134,9 @@ def build_snapshot_answer_key(snapshot_dir: Path, enrollment_csv: Path | None = 
         unresolved.append(
             UnresolvedRow(record_id=rid, policy_number=pn, client_id=client, reason=reason)
         )
-    return _key_from_people(people, unresolved, [])
+    key = _key_from_people(people, unresolved, [])
+    dupes = enr.height - enr["raw_sha256"].n_unique()
+    return key.model_copy(update={"exact_duplicate_rows": dupes})
 
 
 def load_hard_case_key(expected_json: Path) -> AnswerKey:

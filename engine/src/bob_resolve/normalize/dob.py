@@ -4,9 +4,17 @@ from datetime import date
 
 import jellyfish
 
+from bob_resolve.config import PLACEHOLDER_DOBS
+
 
 def dob_key(d: date | None) -> str | None:
-    return d.strftime("%Y%m%d") if d else None
+    """YYYYMMDD, or None for a missing or placeholder date (1900-01-01 never blocks or matches)."""
+    return d.strftime("%Y%m%d") if d and d not in PLACEHOLDER_DOBS else None
+
+
+def age_on(d: date, as_of: date) -> int:
+    """Whole years from d to as_of."""
+    return as_of.year - d.year - ((as_of.month, as_of.day) < (d.month, d.day))
 
 
 def is_transposition(a: str, b: str) -> bool:

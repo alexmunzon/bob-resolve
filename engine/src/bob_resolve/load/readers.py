@@ -8,8 +8,14 @@ from typing import Any
 
 import polars as pl
 
-from bob_resolve.config import TWO_DIGIT_YEAR_PIVOT
+from bob_resolve.config import (
+    MAX_PLAUSIBLE_AGE,
+    MIN_PLAUSIBLE_AGE,
+    PLACEHOLDER_DOBS,
+    TWO_DIGIT_YEAR_PIVOT,
+)
 from bob_resolve.load.records import DobIssue, Lineage, PersonRecord, Source
+from bob_resolve.normalize.dob import age_on
 
 ENROLLMENT_COLUMNS = {
     "member_first": "first_name",
@@ -35,6 +41,18 @@ def _read_with_lineage(path: Path, separator: str) -> pl.DataFrame:
     )
 
 
+def check_dob(d: date, as_of: date) -> tuple[date | None, DobIssue | None]:
+    """Future dates and placeholders (1900-01-01) become None. An age under 18 or over 120 at
+    as_of keeps the date but is flagged "implausible": it may be a typo, so it is not guessed."""
+    if d > as_of:
+        return None, "future"
+    if d in PLACEHOLDER_DOBS:
+        return None, "placeholder"
+    if not MIN_PLAUSIBLE_AGE <= age_on(d, as_of) <= MAX_PLAUSIBLE_AGE:
+        return d, "implausible"
+    return d, None
+
+
 def parse_two_digit_dob(raw: str | None, as_of: date) -> tuple[date | None, DobIssue | None]:
     """Read mm/dd/yy. Years at or above the pivot's last two digits are 19xx, the rest 20xx.
 
@@ -52,33 +70,27 @@ def parse_two_digit_dob(raw: str | None, as_of: date) -> tuple[date | None, DobI
         parsed = date(century + yy, month, day)
     except ValueError:
         return None, "invalid"
-    if parsed > as_of:
-        return None, "future"
-    return parsed, None
+    return check_dob(parsed, as_of)
 
 
-def read_crm(path: Path, as_of: date | None = None) -> pl.DataFrame:
-    """CRM clients: ISO dates parsed to Date, future DOBs rejected. Free-text notes are dropped."""
+def read_crm(path: Path, as_of: date) -> pl.DataFrame:
+    """CRM clients: ISO dates parsed to Date and checked as in check_dob. Notes are dropped."""
     df = _read_with_lineage(path, ",").drop("notes", strict=False)
-    parsed = pl.col("dob").str.to_date("%Y-%m-%d", strict=False)
-    future = parsed > pl.lit(as_of or date.today())
-    issue = (
-        pl.when(pl.col("dob").is_null())
-        .then(pl.lit("missing"))
-        .when(parsed.is_null())
-        .then(pl.lit("invalid"))
-        .when(future)
-        .then(pl.lit("future"))
+    parsed = df["dob"].str.to_date("%Y-%m-%d", strict=False)
+    checked = [
+        (None, "missing" if raw is None else "invalid") if d is None else check_dob(d, as_of)
+        for raw, d in zip(df["dob"], parsed, strict=True)
+    ]
+    return df.with_columns(
+        pl.Series("dob", [c[0] for c in checked], dtype=pl.Date),
+        pl.Series("dob_issue", [c[1] for c in checked], dtype=pl.String),
     )
-    dob = pl.when(future).then(None).otherwise(parsed)
-    return df.with_columns(dob.alias("dob"), issue.alias("dob_issue"))
 
 
-def read_enrollment(path: Path, as_of: date | None = None) -> pl.DataFrame:
+def read_enrollment(path: Path, as_of: date) -> pl.DataFrame:
     """Enrollment export: semicolons, two-digit birth years, compact effective dates."""
     df = _read_with_lineage(path, ";").rename(ENROLLMENT_COLUMNS)
-    today = as_of or date.today()
-    parsed = [parse_two_digit_dob(r, today) for r in df["dob_raw"]]
+    parsed = [parse_two_digit_dob(r, as_of) for r in df["dob_raw"]]
     return df.with_columns(
         pl.Series("dob", [p[0] for p in parsed], dtype=pl.Date),
         pl.Series("dob_issue", [p[1] for p in parsed], dtype=pl.String),

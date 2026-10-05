@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -6,6 +7,8 @@ import pytest
 
 from bob_resolve.load import read_crm, read_enrollment
 from bob_resolve.truth import AnswerKey, build_snapshot_answer_key
+
+AS_OF = date(2026, 10, 1)
 
 IDENTITY_DEFECTS = {
     "nickname",
@@ -19,7 +22,7 @@ IDENTITY_DEFECTS = {
 @pytest.fixture(scope="module")
 def key() -> AnswerKey:
     snapshot = Path(__file__).resolve().parents[3] / "fixtures" / "agency-a-snapshot"
-    return build_snapshot_answer_key(snapshot)
+    return build_snapshot_answer_key(snapshot, as_of=AS_OF)
 
 
 def test_crm_rows_collapse_to_2000_people(key: AnswerKey) -> None:
@@ -32,7 +35,7 @@ def test_every_unscored_identity_defect_is_reachable(snapshot_dir: Path) -> None
     defects = json.loads((snapshot_dir / "ground_truth.json").read_text())["defects"]
     identity = [d for d in defects if d["defect_type"] in IDENTITY_DEFECTS]
     assert len(identity) == 160 and not any(d["scored"] for d in identity)
-    ids = set(read_crm(snapshot_dir / "clients.csv")["client_id"])
+    ids = set(read_crm(snapshot_dir / "clients.csv", AS_OF)["client_id"])
     assert {d["record_key"]["client_id"] for d in identity} <= ids
 
 
@@ -77,6 +80,6 @@ def test_pair_and_cluster_counts(key: AnswerKey) -> None:
 def test_enrollment_mirrors_crm_identity_defects(key: AnswerKey, snapshot_dir: Path) -> None:
     # The intake kit writes the enrollment export after the identity defects, so the typo
     # "Jhnston" (C-00063, originally "Johnston") shows up on both sides.
-    enr = read_enrollment(snapshot_dir / "enrollment_export.csv")
+    enr = read_enrollment(snapshot_dir / "enrollment_export.csv", AS_OF)
     rows = [int(r.split(":")[1]) for r in key.clusters["C-00063"] if r.startswith("enrollment:")]
     assert rows and set(enr.filter(pl.col("row_number").is_in(rows))["last_name"]) == {"Jhnston"}
