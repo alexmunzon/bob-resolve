@@ -1,5 +1,6 @@
 "use client";
-// Copied from plan-diff dashboard/components/nav-link.tsx at c13d5c3 (adapted from agency-intake-kit a54faee): shows pages not built yet.
+// Copied from plan-diff dashboard/components/nav-link.tsx at c13d5c3 (adapted from agency-intake-kit a54faee).
+// PR 9 dropped the "coming soon" text items: they could not take keyboard focus.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,18 +9,10 @@ import { cn } from "@/lib/utils";
 
 const ITEM = "block rounded-md px-3 py-1.5";
 
-// Only the page you are on is highlighted and announced as the current page. A page with no href
-// is not built yet: it shows as plain gray text that says so, and is not a link.
-export function NavLink({ href, label }: { href?: string; label: string }) {
+// Only the page you are on is highlighted and announced as the current page.
+export function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
-  if (!href) {
-    return (
-      <span aria-disabled="true" className={cn(ITEM, "text-slate-500 dark:text-slate-400")}>
-        {label} <span className="text-xs">(coming soon)</span>
-      </span>
-    );
-  }
-  // A plan page counts as the Plan comparison page.
+  // A person's page counts as the Clusters page.
   const current = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
   return (
     <Link

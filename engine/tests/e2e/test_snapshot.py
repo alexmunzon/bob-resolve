@@ -3,6 +3,7 @@ SPEC decision 2 target on all four side and shared-ids combinations. Jev and LLM
 
 import json
 import shlex
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,7 @@ def load(run: Path) -> dict[str, Any]:
         "people": pl.read_csv(run / "people.csv", infer_schema=False),
         "log": jsonl("merge_log.jsonl"),
         "queue": jsonl("review_queue.jsonl"),
+        "members": jsonl("members.jsonl"),
     }
 
 
@@ -88,6 +90,15 @@ def test_decision_2_targets_on_every_combination(combo: Any) -> None:
     assert sc["people_holding_two_true_people"] == 0
     assert sc["review_queue"]["size"] == len(run["queue"])
     assert sc["unidentifiable"] == 9
+    # PR 9: each unidentifiable record names its source file and row, so a person can find it.
+    assert len(sc["unidentifiable_records"]) == 9
+    assert all(u["source_file"] and u["row_number"] >= 1 for u in sc["unidentifiable_records"])
+    # members.jsonl holds every record of each person of two or more, MBI masked, no notes.
+    owner = person_of(run["people"])
+    sizes = Counter(owner.values())
+    multi = {r: p for r, p in owner.items() if sizes[p] > 1}
+    assert {m["record_id"]: m["person_id"] for m in run["members"]} == multi
+    assert all("mbi" not in m and "notes" not in m for m in run["members"])
 
 
 def test_example_1_happy_path_snapshot(combo: Any) -> None:
