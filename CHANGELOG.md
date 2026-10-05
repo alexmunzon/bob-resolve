@@ -93,3 +93,12 @@ measured on synthetic data.
 - Severity is high only for an identity conflict, or a "same person" suggestion where both records hold active policies under different client ids. Within a severity the closest calls (score nearest a cutoff) come first. The demo queue is now 0 high and 89 medium (was 65 and 24).
 - New `--mask-mbi` option. A run written under a `public` folder is refused without it. The public demo shows only the last 4 MBI characters, and a test checks it for any full MBI.
 - Version 0.1.0. Hard cases run in both shared-ids modes in the end-to-end tests, and a test rebuilds the demo and compares it byte for byte with the committed copy.
+
+### PR 7c: Review 2 scoring fixes (2026-10-05)
+
+- Two first names one letter apart are no longer a "typo" when both are known formal names (Mario and Maria, Denis and Denise) or either is under five letters (Carl and Carla, Jon and Jan). Such pairs never auto-merge, even with the same MBI (GR-005). Before, opposite-sex twins named Denis and Denise were merged.
+- A birth date counts as "close" only for two swapped neighboring digits, a swapped month and day, or one changed month or day digit. One changed year digit (1950 and 1980) is a different person.
+- New GR-006: a digit swap that moves the birth year by more than one year never auto-merges unless the MBI, phone, email, or street also agrees.
+- New GR-007 (Alex's decision): a pair that agrees on name and birth date and nothing else auto-merges only if no other record with that name and birth date points elsewhere, and the two records do not disagree on ZIP code or state. Otherwise it goes to review as "unsure". Two James Smiths with one birthday in different ZIP codes now go to review.
+- Auto-merge precision and recall after review are now measured on the merges that survive the cluster check. `bob-resolve score` also prints how many auto-matches that check cut.
+- Six new hard cases (examples 11 to 13), each checked end to end with and without shared ids. On the fixtures nothing true was lost: precision and recall after review stay 1.0000 on all four combinations; the demo queue is 58 items (was 89). Measured on synthetic data.

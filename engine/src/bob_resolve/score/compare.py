@@ -6,12 +6,16 @@ import jellyfish
 from pydantic import BaseModel, ConfigDict
 
 from bob_resolve.config import (
-    FIRST_NAME_TYPO_MAX_EDITS,
     NAME_CLOSE_JARO_WINKLER,
     STREET_CLOSE_JARO_WINKLER,
 )
-from bob_resolve.normalize.dob import dob_edit_distance, is_month_day_swap, is_transposition
-from bob_resolve.normalize.names import names_compatible
+from bob_resolve.normalize.dob import (
+    is_month_day_swap,
+    is_month_or_day_substitution,
+    is_transposition,
+    years_apart,
+)
+from bob_resolve.normalize.names import first_name_typo, names_compatible
 from bob_resolve.normalize.record import NormalizedRecord
 
 DobLevel = Literal["exact", "transposition", "month_day_swap", "one_edit", "far"]
@@ -29,14 +33,16 @@ class Comparison(BaseModel):
 
     first_jw: float | None
     first: FirstLevel | None
-    first_typo: bool | None = None  # within FIRST_NAME_TYPO_MAX_EDITS Damerau-Levenshtein edits
+    first_typo: bool | None = None  # one name mistyped (names.first_name_typo, Review 2)
     last_jw: float | None
     last_metaphone_equal: bool | None
     last: LastLevel | None
     suffix: SuffixLevel | None
     dob: DobLevel | None
+    dob_years_apart: int | None = None
     mbi: Same | None
     zip5: Same | None
+    state: Same | None = None
     street: StreetLevel | None
     phone: Same | None
     email: Same | None
@@ -57,7 +63,7 @@ def dob_level(a: str | None, b: str | None) -> DobLevel | None:
         return "transposition"
     if is_month_day_swap(a, b):
         return "month_day_swap"
-    return "one_edit" if dob_edit_distance(a, b) <= 1 else "far"
+    return "one_edit" if is_month_or_day_substitution(a, b) else "far"
 
 
 def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -> Comparison:
@@ -71,8 +77,7 @@ def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -
     street: StreetLevel | None = None
     if a.first_name and b.first_name:
         first_jw = jellyfish.jaro_winkler_similarity(a.first_name, b.first_name)
-        edits = jellyfish.damerau_levenshtein_distance(a.first_name, b.first_name)
-        first_typo = edits <= FIRST_NAME_TYPO_MAX_EDITS
+        first_typo = first_name_typo(a.first_name, b.first_name)
         if a.first_name == b.first_name:
             first = "equal"
         elif names_compatible(a.first_name, b.first_name):
@@ -101,8 +106,10 @@ def compare(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool = True) -
         last=last,
         suffix=suffix,
         dob=dob_level(a.dob_key, b.dob_key),
+        dob_years_apart=years_apart(a.dob_key, b.dob_key) if a.dob_key and b.dob_key else None,
         mbi=_same(a.mbi, b.mbi) if shared_ids else None,
         zip5=_same(a.zip5, b.zip5),
+        state=_same(a.state, b.state),
         street=street,
         phone=_same(a.phone, b.phone),
         email=_same(a.email, b.email),

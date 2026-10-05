@@ -1,5 +1,5 @@
 {
-  "description": "Hand-written synthetic hard cases for SPEC section 9 examples 4 to 7, plus example 3 because the snapshot cannot produce it, example 9 (GR-004) and example 10 (GR-005). Record ids: crm:<client_id> and enrollment:<1-based data row>.",
+  "description": "Hand-written synthetic hard cases for SPEC section 9 examples 4 to 7, plus example 3 because the snapshot cannot produce it, example 9 (GR-004), example 10 (GR-005), and review 2 examples 11 (GR-005: two formal names, or a short name, one edit apart), 12 (a changed birth-year digit is far; GR-006 year transposition), and 13 (GR-007: name and DOB only). Record ids: crm:<client_id> and enrollment:<1-based data row>.",
   "people": {
     "HC-001": ["crm:HC-001", "enrollment:1"],
     "HC-002": ["crm:HC-002", "enrollment:2"],
@@ -13,7 +13,13 @@
     "HC-010": ["crm:HC-010"],
     "HC-011": ["crm:HC-011"],
     "HC-012": ["crm:HC-012"],
-    "HC-013": ["crm:HC-013"]
+    "HC-013": ["crm:HC-013"],
+    "HC-014": ["crm:HC-014"],
+    "HC-015": ["crm:HC-015"],
+    "HC-016": ["crm:HC-016"],
+    "HC-017": ["crm:HC-017"],
+    "HC-018": ["crm:HC-018"],
+    "HC-019": ["crm:HC-019"]
   },
   "must_not_merge": [
     {"example": 4, "a": "crm:HC-001", "b": "crm:HC-002", "reason": "Twins: same last name, DOB, address and phone, but different first names and different MBIs."},
@@ -24,7 +30,13 @@
     {"example": 7, "a": "crm:HC-007", "b": "crm:HC-008", "reason": "Same MBI on both CRM rows, but DOBs are not within one edit and names differ: a pasted MBI, IDENTITY_CONFLICT."},
     {"example": 7, "a": "crm:HC-008", "b": "enrollment:7", "reason": "Nina's CRM row carries Carl's MBI; Carl's enrollment row must not pull her in."},
     {"example": 9, "a": "crm:HC-010", "b": "crm:HC-011", "reason": "Two different people named Owen Marlowe with the same DOB and nothing else in common: different phone, email, address, and MBI. Ambiguous identity key (GR-004)."},
-    {"example": 10, "a": "crm:HC-012", "b": "crm:HC-013", "reason": "Opposite-sex twins Patrick and Patricia Quill: same last name, DOB, address and phone, different MBIs. First names are not nicknames of each other and not a one-letter typo (GR-005)."}
+    {"example": 10, "a": "crm:HC-012", "b": "crm:HC-013", "reason": "Opposite-sex twins Patrick and Patricia Quill: same last name, DOB, address and phone, different MBIs. First names are not nicknames of each other and not a one-letter typo (GR-005)."},
+    {"example": 11, "a": "crm:HC-006", "b": "crm:HC-014", "reason": "Opposite-sex twins Denise and Denis Okafor: same DOB, address, phone, email, and even the same (pasted) MBI. Denis and Denise are one edit apart but both are formal given names, so not a typo (GR-005, review 2 F1). A shared MBI does not override it."},
+    {"example": 11, "a": "crm:HC-007", "b": "crm:HC-015", "reason": "Carl and Carla Wexley share a household phone, email, address, and DOB. Carl is under five letters, and both are formal names: not a typo (GR-005, review 2 F4)."},
+    {"example": 12, "a": "crm:HC-003", "b": "crm:HC-016", "reason": "Robert Hale Sr (1941) and a Robert Hale born 1948 at the same address: one changed year digit is a different person, not a one-edit typo (review 2 F2)."},
+    {"example": 12, "a": "crm:HC-004", "b": "crm:HC-016", "reason": "Robert Hale Jr (1968) and the Robert Hale born 1948: one changed year digit is far (review 2 F2)."},
+    {"example": 12, "a": "crm:HC-001", "b": "crm:HC-017", "reason": "Ellen Quarry born 1952 and an Ellen Quarry born 1925 in the same ZIP: the year digits are transposed, 27 years apart, and no MBI, phone, email, or street agrees (GR-006)."},
+    {"example": 13, "a": "crm:HC-018", "b": "crm:HC-019", "reason": "Two James Smiths with the same DOB, no MBI, phone, email, or street, in different ZIP codes: name and DOB only with a location conflict (GR-007)."}
   ],
   "same_person": [
     {"example": 3, "a": "crm:HC-009", "b": "enrollment:9", "reason": "CRM nickname Dave, enrollment legal name David, same DOB and MBI."},

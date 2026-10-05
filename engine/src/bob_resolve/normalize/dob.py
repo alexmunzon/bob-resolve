@@ -4,7 +4,7 @@ from datetime import date
 
 import jellyfish
 
-from bob_resolve.config import PLACEHOLDER_DOBS
+from bob_resolve.config import DOB_SUBSTITUTION_MIN_INDEX, PLACEHOLDER_DOBS
 
 
 def dob_key(d: date | None) -> str | None:
@@ -33,3 +33,17 @@ def is_month_day_swap(a: str, b: str) -> bool:
 def dob_edit_distance(a: str, b: str) -> int:
     """Damerau-Levenshtein distance: an adjacent swap counts as one edit."""
     return jellyfish.damerau_levenshtein_distance(a, b)
+
+
+def is_month_or_day_substitution(a: str, b: str) -> bool:
+    """True when exactly one digit differs and it is in the month or day (Review 2, F2).
+    One changed year digit (1950 and 1980) is a different decade, not a typo we trust."""
+    if len(a) != len(b):
+        return False
+    d = [i for i in range(len(a)) if a[i] != b[i]]
+    return len(d) == 1 and d[0] >= DOB_SUBSTITUTION_MIN_INDEX
+
+
+def years_apart(a: str, b: str) -> int:
+    """Whole birth-year difference between two YYYYMMDD keys."""
+    return abs(int(a[:4]) - int(b[:4]))

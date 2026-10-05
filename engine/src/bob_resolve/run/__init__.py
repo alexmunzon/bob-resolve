@@ -267,7 +267,9 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
         "blocking": evaluate(
             pairs, key, len(norm), o.shared_ids, tuple(dropped_blocks(norm, o.shared_ids))
         ),  # fmt: skip
-        "scores": evaluate_scores(scored, key, o.shared_ids),
+        "scores": evaluate_scores(  # final edges after cluster splits (review 2, F8)
+            scored, key, o.shared_ids, kept={(e.a, e.b) for e in res.log if e.action == "merge"}
+        ),
     }
     lap("scorecard")
     c["scorecard"] = scorecard(o, key, c)
