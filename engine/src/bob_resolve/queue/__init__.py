@@ -129,7 +129,8 @@ def build_queue(
     ) -> QueueItem:  # fmt: skip
         ids = sorted(ids)
         n_active = sum(i in active for i in ids)
-        severity = "high" if reason == "IDENTITY_CONFLICT" or n_active >= 2 else "medium"
+        high = reason == "IDENTITY_CONFLICT" or n_active >= 2
+        severity: Literal["high", "medium"] = "high" if high else "medium"
         digest = hashlib.sha256(f"{kind}|{'|'.join(ids)}".encode()).hexdigest()[:12]
         return QueueItem(
             item_id=f"rq-{digest}",
@@ -165,15 +166,25 @@ def build_queue(
         if r.reason == "CLUSTER_CONFLICT":
             items.append(
                 item(
-                    "cluster_conflict", "CLUSTER_CONFLICT", r.record_ids, r.pairs,
-                    "different_people", ("CLUSTER_CONFLICT",), r.detail,
+                    "cluster_conflict",
+                    "CLUSTER_CONFLICT",
+                    r.record_ids,
+                    r.pairs,
+                    "different_people",
+                    ("CLUSTER_CONFLICT",),
+                    r.detail,
                 )  # fmt: skip
             )
         elif not r.pairs:  # authoritative records in one cluster disagree on DOB or MBI
             items.append(
                 item(
-                    "identity_conflict", "IDENTITY_CONFLICT", r.record_ids, [], "unsure",
-                    ("IDENTITY_CONFLICT",), r.detail,
+                    "identity_conflict",
+                    "IDENTITY_CONFLICT",
+                    r.record_ids,
+                    [],
+                    "unsure",
+                    ("IDENTITY_CONFLICT",),
+                    r.detail,
                 )  # fmt: skip
             )
     items = [i for i in items if i.item_id not in skip]

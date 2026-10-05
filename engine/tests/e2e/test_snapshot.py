@@ -51,7 +51,9 @@ def hard(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 
 
 def person_of(people: pl.DataFrame) -> dict[str, str]:
-    return {r: p for p, ids in people.select("person_id", "record_ids").rows() for r in ids.split(";")}
+    return {
+        r: p for p, ids in people.select("person_id", "record_ids").rows() for r in ids.split(";")
+    }
 
 
 def household_of(run: dict[str, Any]) -> dict[str, str]:
@@ -170,3 +172,16 @@ def test_example_8_jev_off_every_gray_pair_queued(combo: Any) -> None:
     assert len(queued) == gray
     for i in run["queue"]:
         assert i["deciding_tier"] == "rules" and i["severity"] in ("high", "medium")
+
+
+def test_examples_9_and_10_guard_rails_reach_the_queue(hard: dict[str, Any]) -> None:
+    """GR-004 (two Owen Marlowes) and GR-005 (twins Patrick and Patricia) stay apart and are
+    queued with their rule id; GR-005 suggests "different people"."""
+    p = person_of(hard["people"])
+    for a, b, rule, suggestion in (
+        ("crm:HC-010", "crm:HC-011", "GR-004", "unsure"),
+        ("crm:HC-012", "crm:HC-013", "GR-005", "different_people"),
+    ):
+        assert p[a] != p[b] and not merged(hard, a, b)
+        item = next(i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == {a, b})
+        assert rule in item["rule_ids"] and item["suggestion"] == suggestion
