@@ -66,6 +66,8 @@ defected values): `fixtures/agency-a-derived/enrollment_clean.csv` is built by c
 the 130 nickname, name_typo, dob_transposition, and dob_month_day_swap values with its recorded original (`from`), so
 the CRM says Dave while enrollment says David. Labeled "derived from the answer key" everywhere it is reported; the
 benchmark reports the snapshot and the derived set separately.
+Because MBI and policy number still match exactly across files, every target in decision 2 is also measured
+with MBI and policy number withheld from blocking and scoring ("no shared ids" mode), and the README leads with that number.
 
 **Pair answer key** (built by code, never hand-edited): an enrollment row and a CRM client are the same person when the
 row's policy number resolves through `policies.csv` to that `client_id`; a near-duplicate client is the same person as
