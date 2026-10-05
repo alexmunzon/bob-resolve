@@ -7,7 +7,9 @@
     "GR-002": 0,
     "GR-003": 273,
     "GR-004": 0,
-    "GR-005": 1279
+    "GR-005": 1280,
+    "GR-006": 0,
+    "GR-007": 0
   },
   "households": 1425,
   "label": "measured on synthetic data",
@@ -56,20 +58,20 @@
     },
     "rules": {
       "auto_match": 2139,
-      "auto_reject": 1230,
-      "gray": 89
+      "auto_reject": 1261,
+      "gray": 58
     }
   },
   "records_in": 3887,
   "review_queue": {
     "by_reason": {
-      "GRAY_ZONE": 89
+      "GRAY_ZONE": 58
     },
     "by_severity": {
       "high": 0,
-      "medium": 89
+      "medium": 58
     },
-    "size": 89
+    "size": 58
   },
   "shared_ids": false,
   "true_pairs": 2167,

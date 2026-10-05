@@ -233,6 +233,31 @@ def test_examples_9_and_10_guard_rails_reach_the_queue(hard: dict[str, Any]) -> 
         assert rule in item["rule_ids"] and item["suggestion"] == suggestion
 
 
+def test_review_2_examples_11_to_13_never_merge(hard: dict[str, Any]) -> None:
+    """Review 2, both shared-ids modes: two formal or short first names one edit apart (GR-005,
+    even with a shared MBI), a changed birth-year digit (far), a year transposition with no
+    independent evidence (GR-006), and two James Smiths in different ZIPs (GR-007)."""
+    p = person_of(hard["people"])
+    for a, b, rule, suggestion in (
+        ("crm:HC-006", "crm:HC-014", "GR-005", "different_people"),
+        ("crm:HC-007", "crm:HC-015", "GR-005", "different_people"),
+        ("crm:HC-001", "crm:HC-017", "GR-006", "unsure"),
+        ("crm:HC-018", "crm:HC-019", "GR-007", "unsure"),
+    ):
+        assert p[a] != p[b] and not merged(hard, a, b)
+        item = next(i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == {a, b})
+        assert rule in item["rule_ids"] and item["suggestion"] == suggestion
+    for a in ("crm:HC-003", "crm:HC-004"):
+        assert p[a] != p["crm:HC-016"] and not merged(hard, a, "crm:HC-016")
+        item = next(
+            i for i in hard["queue"] if {r["record_id"] for r in i["records"]} == {a, "crm:HC-016"}
+        )
+        assert item["pairs"][0]["evidence"]["dob"] == "far"
+        assert item["suggestion"] != "same_person"
+    # A unique name plus DOB with no location conflict still auto-merges (Dave and David).
+    assert merged(hard, "crm:HC-009", "enrollment:9")
+
+
 def test_committed_demo_regenerates_byte_identical(tmp_path: Path) -> None:
     """`npm run demo` into a temp folder must equal the committed public demo, byte for byte."""
     script = json.loads((FIXTURES.parent / "package.json").read_text())["scripts"]["demo"]

@@ -27,7 +27,10 @@ def test_hard_cases_load_and_cover_examples_4_to_7(hard_cases_dir: Path) -> None
         7,
         9,
         10,
-    }  # 9: same name and DOB, PR 5 GR-004; 10: Patrick and Patricia twins, GR-005
+        11,
+        12,
+        13,
+    }  # 9: GR-004; 10: Patrick and Patricia, GR-005; 11 to 13: review 2 (GR-005, DOB, GR-007)
     for m in key.must_not_merge:
         assert key.person_of[m.a] != key.person_of[m.b], m.reason
     assert ("crm:HC-009", "enrollment:9") in key.pairs  # example 3, Dave and David
@@ -36,8 +39,8 @@ def test_hard_cases_load_and_cover_examples_4_to_7(hard_cases_dir: Path) -> None
 def test_hard_cases_are_obviously_synthetic(hard_cases_dir: Path) -> None:
     crm = read_crm(hard_cases_dir / "clients.csv", AS_OF)
     enr = read_enrollment(hard_cases_dir / "enrollment_export.csv", AS_OF)
-    for mbi in crm["mbi"].to_list() + enr["mbi"].to_list():
+    for mbi in crm["mbi"].drop_nulls().to_list() + enr["mbi"].drop_nulls().to_list():
         assert MBI.match(mbi) and mbi.startswith("9A"), mbi
-    assert all(p.startswith("(555) 555-") for p in crm["phone"])
+    assert all(p.startswith("(555) 555-") for p in crm["phone"].drop_nulls())
     assert all(e.endswith("@example.com") for e in crm["email"].drop_nulls())
     assert "ssn" not in " ".join(crm.columns + enr.columns).lower()

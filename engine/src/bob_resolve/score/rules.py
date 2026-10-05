@@ -195,9 +195,7 @@ def name_dob_unique_checker(
             if o.record_id not in (a.record_id, b.record_id)
             and canonical_names(o.first_name) & names
         }
-        return all(
-            _tied(o, a, shared_ids) and _tied(o, b, shared_ids) for o in others.values()
-        )
+        return all(_tied(o, a, shared_ids) and _tied(o, b, shared_ids) for o in others.values())
 
     return unique
 

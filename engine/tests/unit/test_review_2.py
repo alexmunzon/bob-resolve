@@ -48,7 +48,9 @@ def test_formal_or_short_first_names_one_edit_apart_are_not_a_typo(a: str, b: st
     assert not first_name_typo(a, b)
 
 
-@pytest.mark.parametrize("a,b", [("patrick", "patrik"), ("patrick", "patirck"), ("ellen", "elen")])
+@pytest.mark.parametrize(
+    "a,b", [("patrick", "patrik"), ("patrick", "patirck"), ("michael", "micheal")]
+)
 def test_a_real_one_letter_typo_of_a_long_name_is_still_a_typo(a: str, b: str) -> None:
     assert first_name_typo(a, b)
 
@@ -77,7 +79,7 @@ def test_shared_mbi_never_overrides_two_formal_first_names(
         ("19410602", "19480602", "far"),
         ("19500101", "19500201", "one_edit"),  # month digit
         ("19500101", "19500109", "one_edit"),  # day digit
-        ("19501021", "19500121", "far"),  # two month digits changed, not a swap
+        ("19501021", "19500221", "far"),  # two month digits changed, not a swap
         ("19520414", "19250414", "transposition"),  # year transposition, 27 years
         ("19500412", "19501204", "month_day_swap"),
     ],
@@ -164,14 +166,14 @@ def test_metrics_use_final_edges_after_cluster_splits(hard: dict[str, Normalized
     patrick, patricia = hard["crm:HC-012"], hard["crm:HC-013"]
     pat = _copy(patricia, "crm:HC-012-pat", first_name="pat", first_name_canonical="patricia")
     recs = [patrick, patricia, pat]
-    scored = list(_run(recs, True).values())
+    scored = list(_run(recs, False).values())
     auto = [p for p in scored if p.decision == "AUTO_MATCH"]
     assert len(auto) == 2
     _, kept, splits = split_on_conflict(recs, auto)
     assert len(splits) == 1 and len(kept) == 1
     key = AnswerKey(clusters={"P1": ("crm:HC-012", "crm:HC-012-pat"), "P2": ("crm:HC-013",)})
-    before = evaluate_scores(scored, key, True)
-    after = evaluate_scores(scored, key, True, kept=kept)
+    before = evaluate_scores(scored, key, False)
+    after = evaluate_scores(scored, key, False, kept=kept)
     assert before.auto_match == 2 and after.auto_match == 1 and after.cut_by_cluster == 1
     cut = next(iter({(p.a, p.b) for p in auto} - kept))
     assert (cut in key.pairs) == (cut in after.missed)
