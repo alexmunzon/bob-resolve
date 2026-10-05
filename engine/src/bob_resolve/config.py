@@ -34,3 +34,35 @@ US_COUNTRY_CODE: Final[str] = "1"
 # Blocking uses MBI only when shared ids are allowed. "No shared ids" mode (SPEC section 5)
 # withholds MBI and policy number from blocking and scoring, because they match across files.
 SHARED_IDS_DEFAULT: Final[bool] = True
+
+# PR 5
+# Rules arm scoring (SPEC 6 step 3). Hand-tuned, not learned: tuned on the snapshot and the
+# derived side, never on the hard cases (docs/pr-5-notes.md). Each comparison level adds its
+# weight to a log-odds total; the score is the logistic of that total, so it lies in [0, 1].
+# A missing value on either side adds nothing. Policy number is never a scoring feature.
+NAME_CLOSE_JARO_WINKLER: Final[float] = 0.90
+STREET_CLOSE_JARO_WINKLER: Final[float] = 0.90
+SCORE_BIAS: Final[float] = -4.0
+SCORE_WEIGHTS: Final[dict[str, dict[str, float]]] = {
+    "first": {"equal": 3.0, "nickname": 2.5, "close": 1.5, "far": -3.0},
+    "last": {"equal": 3.0, "close": 2.0, "far": -3.0},
+    "suffix": {"same": 0.0, "one_missing": 0.0, "different": -3.0},
+    "dob": {
+        "exact": 4.0,
+        "transposition": 2.5,
+        "month_day_swap": 2.5,
+        "one_edit": 2.0,
+        "far": -5.0,
+    },
+    "mbi": {"same": 4.0, "different": -6.0},
+    "zip5": {"same": 0.5, "different": -0.5},
+    "street": {"same": 1.0, "close": 0.5, "different": -0.5},
+    "phone": {"same": 1.0, "different": -0.25},
+    "email": {"same": 1.0, "different": -0.25},
+}
+# At or above HIGH: auto-match (unless a guard rail stops it). Below LOW: auto-reject.
+SCORE_HIGH: Final[float] = 0.99
+SCORE_LOW: Final[float] = 0.10
+# A gray pair is suggested "same person" for review when its score is at least this line and no
+# guard rail fired. Recall after review counts those plus auto-matches (SPEC decision 2).
+GRAY_SAME_PERSON_MIN: Final[float] = (SCORE_HIGH + SCORE_LOW) / 2

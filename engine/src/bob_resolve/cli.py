@@ -8,7 +8,8 @@ import typer
 from bob_resolve import __version__
 from bob_resolve.block import candidate_pairs, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
-from bob_resolve.config import SHARED_IDS_DEFAULT
+from bob_resolve.config import SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
+from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth.derive import derive_clean_enrollment
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
@@ -67,4 +68,32 @@ def block(
         typer.echo(f"  {name}: {recall:.4f}")
     for a, b in rep.missed_examples[:10]:
         typer.echo(f"  missed: {a} {b}")
+    typer.echo("measured on synthetic data")
+
+
+@app.command()
+def score(
+    enrollment: Annotated[EnrollmentSide, typer.Option(help="Enrollment side to score against")],
+    shared_ids: Annotated[
+        bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")
+    ] = SHARED_IDS_DEFAULT,
+    fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+) -> None:
+    """Score candidate pairs with the rules arm and print the SPEC decision 2 targets."""
+    records, key = load_normalized(fixtures, enrollment)
+    scored = score_candidates(records, candidate_pairs(records, shared_ids), shared_ids)
+    rep = evaluate_scores(scored, key, shared_ids)
+    label = " (derived from the answer key)" if enrollment == "derived" else ""
+    typer.echo(f"enrollment: {enrollment}{label}; shared ids: {'on' if shared_ids else 'off'}")
+    typer.echo(f"cutoffs: high {SCORE_HIGH}, low {SCORE_LOW}")
+    typer.echo(f"auto-merge precision: {rep.auto_merge_precision:.4f}")
+    typer.echo(f"auto-merge count: {rep.auto_match}")
+    typer.echo(f"gray count: {rep.gray}")
+    typer.echo(f"reject count: {rep.auto_reject}")
+    typer.echo(f"recall after review: {rep.recall_after_review:.4f} of {rep.true_pairs} true pairs")
+    typer.echo(f"auto-matches touching an unresolved row: {rep.unresolved_auto_matched}")
+    for rule, n in rep.guard_rail_hits.items():
+        typer.echo(f"  {rule} hits: {n}")
+    for a, b in rep.false_merges[:10]:
+        typer.echo(f"  false merge: {a} {b}")
     typer.echo("measured on synthetic data")
