@@ -10,6 +10,9 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - `cd engine && uv run bob-resolve version`   print the engine version.
 - `cd engine && uv run bob-resolve fixtures derive --snapshot ../fixtures/agency-a-snapshot --out ../fixtures/agency-a-derived`   rebuild the derived clean enrollment side.
 - `cd engine && uv run pytest -q tests/unit/test_cli.py -k version`   run one test file or test.
+- `cd engine && uv run bob-resolve run --enrollment snapshot --out ../runs --run-id <id>`   write one immutable run folder (add `--no-shared-ids`, `--as-of`, `--now` as needed).
+- `cd engine && uv run bob-resolve review apply --run ../runs/<id> --decisions <file.jsonl> --out ../runs --run-id <new id>`   apply human decisions as a new run; the old run is never changed.
+- `npm run demo`   regenerate the committed demo run in dashboard/public/demo-run/ (MBI masked). Byte-identical on a rerun.
 - `cd dashboard && npm run dev`   local dashboard.
 
 ## Invariants (never break these)
