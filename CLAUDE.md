@@ -22,7 +22,8 @@ pairs to a human review queue. SPEC.md is the source of truth.
   suffix is never auto-merged (GR-001); a shared MBI with DOBs more than one edit apart is never
   auto-merged (GR-002); shared phone or email alone never merges (GR-003); an ambiguous identity key
   never auto-merges (GR-004); first names that are not compatible and more than one typo apart
-  (Patrick and Patricia) never auto-merge (GR-005).
+  (Patrick and Patricia) never auto-merge (GR-005); a year-changing DOB transposition needs another agreeing
+  identifier (GR-006); name plus DOB alone auto-merges only if unique in the book with no ZIP or state conflict (GR-007).
 - Two authoritative sources that disagree on DOB or MBI are never guessed: review with IDENTITY_CONFLICT.
 - The merge log is append-only JSONL. Never rewrite a line; a correction is a new line.
 - JEV_MODE defaults to replay. The LLM arm defaults off. live and record spend money: no agent sets them;

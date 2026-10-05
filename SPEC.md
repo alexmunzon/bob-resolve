@@ -91,6 +91,13 @@ moved households, shared household phones and emails, a child on a parent's poli
    the high line, auto-match; below the low line, auto-reject. **Guard rails that override the score:** different
    generational suffix (Jr vs Sr) is never auto-merged; a shared MBI with a DOB that is neither within one edit
    nor a month-day swap is never auto-merged (a pasted MBI is a data-entry error, not identity proof); shared phone or email alone never merges.
+   Added 2026-10-05 after reviews: GR-004 a name plus DOB key held by records that conflict never auto-merges; GR-005
+   first names that are not nicknames of each other never auto-merge when they are distinct formal names, under 5
+   letters, or more than one typo apart (Patrick and Patricia, Mario and Maria); a year-digit DOB substitution counts
+   as a far DOB; GR-006 a DOB transposition that moves the year by more than 1 needs MBI, phone, email, or street to
+   agree; GR-007 (Alex, 2026-10-05) when name plus DOB is the only agreeing evidence, auto-merge only if no other record
+   in the book holds that key while disagreeing with the pair on any field, and the pair does not disagree on ZIP or
+   state. Gray pairs from these rails carry the rule id and a suggestion of "different people" or "unsure".
 4. **Jev gate on the gray zone** (after commons exists): `noul` "Is record B the same person as record A?" and `choice`
    household role (self, spouse, dependent, unrelated). Payload minimized to the compared fields only, no notes.
    Thresholds in `config.py`; Jev never overrides a guard rail. `off` mode sends every gray-zone pair to review.
