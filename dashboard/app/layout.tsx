@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <p className="text-sm font-semibold">bob-resolve</p>
             <ThemeToggle />
           </div>
-          <ul className="flex gap-1 overflow-x-auto px-2 pb-2 text-sm lg:flex-col lg:px-3">
+          <ul className="flex flex-wrap gap-1 px-2 pb-2 text-sm lg:flex-col lg:flex-nowrap lg:px-3">
             {PAGES.map(({ label, href }) => (
               <li key={label} className="shrink-0">
                 <NavLink href={href} label={label} />

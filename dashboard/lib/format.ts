@@ -17,6 +17,19 @@ export function percent(rate: number): string {
   return `${text}%`;
 }
 
+/**
+ * A 0 to 1 value, such as a match score, with a fixed number of decimals, e.g. 0.998 at 3 is "0.998".
+ * Rounding never hides a gap: a value just under 1 shows ">0.999" (only exactly 1 is "1.000"),
+ * and a value just over 0 shows "<0.001" (only exactly 0 is "0.000").
+ */
+export function fixed(value: number, digits: number): string {
+  const text = value.toFixed(digits);
+  const step = 10 ** -digits;
+  if (value < 1 && text === (1).toFixed(digits)) return `>${(1 - step).toFixed(digits)}`;
+  if (value > 0 && text === (0).toFixed(digits)) return `<${step.toFixed(digits)}`;
+  return text;
+}
+
 /** Engine costs are US dollars as JSON numbers (0.0 while Jev and the LLM are off). */
 export function formatUsd(amount: number): string {
   if (!Number.isFinite(amount) || amount < 0) throw new Error(`Not a cost: ${amount}`);

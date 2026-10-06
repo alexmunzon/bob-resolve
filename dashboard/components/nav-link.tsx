@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-const ITEM = "block rounded-md px-3 py-1.5";
+const ITEM = "block rounded-md px-3 py-2.5 lg:py-1.5";
 
 // Only the page you are on is highlighted and announced as the current page.
 export function NavLink({ href, label }: { href: string; label: string }) {
