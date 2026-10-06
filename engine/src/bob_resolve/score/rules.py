@@ -141,12 +141,15 @@ def _tie_groups(rs: Sequence[NormalizedRecord], shared_ids: bool) -> list[int]:
 
     def root(i: int) -> int:
         while group[i] != i:
+            group[i] = group[group[i]]
             i = group[i]
         return i
 
     for i, j in combinations(range(len(rs)), 2):
         if _tied(rs[i], rs[j], shared_ids):
-            group[root(i)] = root(j)
+            a, b = root(i), root(j)
+            if a != b:
+                group[a] = b
     return [root(i) for i in range(len(rs))]
 
 

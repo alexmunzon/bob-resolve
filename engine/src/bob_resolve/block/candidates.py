@@ -150,7 +150,7 @@ def evaluate(
     dropped: tuple[DroppedBlock, ...] = (),
 ) -> BlockingReport:
     """Blocking recall against the pair answer key, overall and per key."""
-    truth = pl.DataFrame(sorted(key.pairs), schema=["a", "b"], orient="row")
+    truth = pl.DataFrame(sorted(key.pairs), schema={"a": pl.String, "b": pl.String}, orient="row")
     hit = truth.join(pairs, on=["a", "b"], how="left")
     found = hit.filter(pl.col("keys").is_not_null())
     per_key = {
