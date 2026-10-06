@@ -47,7 +47,9 @@ household contacts, and look-alikes such as twins. The matcher was tuned on this
 so it is a seen regression set, not held out. These figures are not accuracy on unseen data.
 
 ```bash
-cd engine && uv run bob-resolve run --world multi-a-b --no-shared-ids --out ../runs --run-id two-agency
+cd engine
+uv run bob-resolve run --world multi-a-b --out ../runs --run-id two-agency-ids
+uv run bob-resolve run --world multi-a-b --no-shared-ids --out ../runs --run-id two-agency-no-ids
 ```
 
 | Shared ids | Auto-merge precision | Automatic recall (all pairs) | Automatic recall (320 cross-agency client pairs) | If every suggestion were confirmed (320 pairs, hypothetical) | Look-alike pairs merged (of 164) | Awaiting review |
@@ -57,7 +59,8 @@ cd engine && uv run bob-resolve run --world multi-a-b --no-shared-ids --out ../r
 
 Automatic figures count only merges the engine made on its own. The hypothetical column counts pairs
 the engine only suggested as the same person; no person has confirmed them. Without shared ids the
-engine merges almost nothing on its own and sends nearly every pair to review. Measured 2026-10-06 at
+engine merges almost nothing on its own across all pairs (0.06) and sends nearly every pair to review,
+though it still merges 81% of the 320 cross-agency client pairs. Measured 2026-10-06 at
 PR 18. History: docs/pr-10-notes.md and docs/pr-10b-notes.md.
 
 ## Known limits
