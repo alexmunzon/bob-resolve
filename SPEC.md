@@ -92,8 +92,9 @@ moved households, shared household phones and emails, a child on a parent's poli
    generational suffix (Jr vs Sr) is never auto-merged; a shared MBI with a DOB that is neither within one edit
    nor a month-day swap is never auto-merged (a pasted MBI is a data-entry error, not identity proof); shared phone or email alone never merges.
    Added 2026-10-05 after reviews: GR-004 a name plus DOB key held by records that conflict never auto-merges, except
-   that records tied together by MBI (shared ids on) or an exact phone, email, or street are one person's own records
-   and their conflicts do not count (a person who moved is not ambiguous with themselves, PR 10b); GR-005
+   that records tied together by MBI (shared ids on) or an exact phone or email are one person's own records
+   and their conflicts do not count (a person who moved is not ambiguous with themselves, PR 10b), though a different
+   MBI (shared ids on) always counts and a shared street is not a tie (PR 21c); GR-005
    first names that are not nicknames of each other never auto-merge when they are distinct formal names, under 5
    letters, more than one typo apart, or one edit apart at the end where either name ends in a vowel or y (Patrick
    and Patricia, Mario and Maria, Andrew and Andrea, Louis and Louise), and a shared MBI never overrides it; a

@@ -36,7 +36,8 @@ GUARD_RAILS: dict[RuleId, str] = {
     "GR-003": "Shared phone or email alone (names and DOB not compatible) never auto-matches.",
     "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
     "and some holder conflicts with another, so no pair on that key auto-matches. Conflicts "
-    "between the pair's own records (tied by MBI, phone, email, or street) do not count.",
+    "between one person's own records (tied by MBI, phone, or email) do not count, but a "
+    "different MBI (shared ids on) always counts and a shared street is not a tie.",
     "GR-005": "First names incompatible: not equal, not nicknames or an initial, and more than "
     "one typo apart (Patrick and Patricia), so the pair never auto-matches. Two known formal "
     "names (Mario and Maria), a name under five letters, or a changed ending (Andrew and "
@@ -143,8 +144,13 @@ def _conflict(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool) -> boo
     return all(x and y and x != y for x, y in contact)
 
 
+def _mbi_differs(a: NormalizedRecord, b: NormalizedRecord) -> bool:
+    """Both MBIs present and different. Only called with shared ids on."""
+    return bool(a.mbi and b.mbi and a.mbi != b.mbi)
+
+
 def _tied(x: NormalizedRecord, y: NormalizedRecord, shared_ids: bool) -> bool:
-    """x and y are one person's records: an exact MBI (ids on), phone, email, or street."""
+    """x and y are one person's records: an exact MBI (ids on), phone, or email."""
     return any(
         (f != "mbi" or shared_ids) and getattr(x, f) and getattr(x, f) == getattr(y, f)
         for f in OWN_RECORD_TIE_FIELDS
@@ -172,7 +178,8 @@ def _tie_groups(rs: Sequence[NormalizedRecord], shared_ids: bool) -> list[int]:
 def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set[IdentityKey]:
     """GR-004: identity keys held by two or more records where two holders conflict. Two
     holders tied together (directly or through a chain of ties) are one person's own records,
-    so their conflict does not count (PR 10b): a person who moved is not ambiguous."""
+    so their conflict does not count (PR 10b): a person who moved is not ambiguous. With shared
+    ids on, two different MBIs always conflict, whatever ties the holders (PR 21c)."""
     holders: dict[IdentityKey, list[NormalizedRecord]] = defaultdict(list)
     for r in records:
         if (k := identity_key(r)) is not None:
@@ -183,7 +190,8 @@ def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set
             continue
         g = _tie_groups(rs, shared_ids)
         if any(
-            g[i] != g[j] and _conflict(rs[i], rs[j], shared_ids)
+            (shared_ids and _mbi_differs(rs[i], rs[j]))
+            or (g[i] != g[j] and _conflict(rs[i], rs[j], shared_ids))
             for i, j in combinations(range(len(rs)), 2)
         ):
             out.add(k)

@@ -22,8 +22,9 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - Guard rails override the score and are never overridden by Jev or an LLM: different generational
   suffix is never auto-merged (GR-001); a shared MBI with DOBs more than one edit apart is never
   auto-merged (GR-002); shared phone or email alone never merges (GR-003); an ambiguous identity key
-  never auto-merges, but one person's own records tied by MBI, phone, email, or street never count as conflicting
-  (GR-004); first names that are not compatible, more than one typo apart, or one edit apart at a vowel or y ending
+  never auto-merges, but one person's own records tied by MBI, phone, or email never count as conflicting,
+  though a different MBI always does and a shared street is not a tie (GR-004); first names that are not
+  compatible, more than one typo apart, or one edit apart at a vowel or y ending
   (Patrick and Patricia, Andrew and Andrea) never auto-merge, even with a shared MBI (GR-005); a year-changing DOB
   transposition needs another agreeing identifier (GR-006); name plus DOB as the only agreeing evidence never
   auto-merges: it needs MBI (shared ids on), phone, email, street, or a linking policy (GR-007);
