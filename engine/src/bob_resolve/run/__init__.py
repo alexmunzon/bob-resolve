@@ -20,6 +20,7 @@ from typing import Any, Literal
 import polars as pl
 
 from bob_resolve import __version__
+from bob_resolve.benchmark import write_benchmark
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.cluster import components
 from bob_resolve.config import (
@@ -265,6 +266,15 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
             "llm": {"mode": RUN_LLM_MODE, "calls": 0},
         },
         "guard_rail_hits": c["scores"].guard_rail_hits,
+        # suggested_same_person comes from the engine's scores before any review, so a pair a
+        # reviewer later confirms is also in human_confirmed_merges. Never add the two together.
+        "resolution": {
+            "true_pairs": len(key.pairs),
+            "found_automatically": c["scores"].auto_match_true,
+            "suggested_same_person": c["scores"].gray_same_person_true,
+            "human_confirmed_merges": tiers["review"],
+            "awaiting_review": len(queue),
+        },
         "review_queue": {
             "size": len(queue),
             "by_severity": {s: sum(i.severity == s for i in queue) for s in ("high", "medium")},
@@ -481,6 +491,10 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
         },
         d / "manifest.json",
     )
+    write_benchmark([d], d / "benchmark.json")
+    manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+    manifest["outputs"]["benchmark.json"] = sha256(d / "benchmark.json")
+    _json(manifest, d / "manifest.json")
 
 
 def execute(o: RunOptions, parent: Parent | None = None) -> Path:
