@@ -2,16 +2,18 @@
 
 Nickname links are not transitive: Patrick and Pat match, Pat and Patricia match, Patrick and
 Patricia do not. So after the components are built every record pair inside one is re-checked,
-and a conflicting pair is cut apart at the weakest auto-match link on the path between them.
+and for a conflicting pair every auto-match link on any path between them is held for review.
+No link is kept by score or by record id order (PR 21a).
 """
 
-from collections import defaultdict, deque
+from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import cache
 
 import polars as pl
 
+from bob_resolve.cluster.blocks import biconnected_blocks, edges_between
 from bob_resolve.config import CLUSTER_CONFLICT_LEVELS
 from bob_resolve.normalize.names import NICKNAMES_CSV, normalize_name
 from bob_resolve.normalize.record import NormalizedRecord
@@ -62,30 +64,10 @@ def conflict_reasons(
     return tuple(out)
 
 
-def _path(u: str, v: str, edges: set[Pair]) -> list[Pair]:
-    """Edges on a shortest path from u to v (BFS), or [] when they are not connected."""
-    adj: dict[str, list[str]] = defaultdict(list)
-    for a, b in sorted(edges):
-        adj[a].append(b)
-        adj[b].append(a)
-    prev: dict[str, str] = {u: u}
-    queue = deque([u])
-    while queue and v not in prev:
-        x = queue.popleft()
-        for y in adj[x]:
-            if y not in prev:
-                prev[y] = x
-                queue.append(y)
-    out: list[Pair] = []
-    while v in prev and v != u:
-        out.append((min(v, prev[v]), max(v, prev[v])))
-        v = prev[v]
-    return out
-
-
 @dataclass(frozen=True)
 class ClusterSplit:
-    """One component that held a conflicting pair: its records, those pairs, the edges cut."""
+    """One component that held a conflicting pair: its records, those pairs, the edges held.
+    `cut` keeps its old name, but since PR 21a it means held for review, not cut at one link."""
 
     records: tuple[str, ...]
     conflicts: tuple[Pair, ...]
@@ -96,27 +78,28 @@ def split_on_conflict(
     records: Sequence[NormalizedRecord], matches: Sequence[ScoredPair], *, shared_ids: bool = True
 ) -> tuple[list[tuple[str, ...]], set[Pair], list[ClusterSplit]]:
     """Return final clusters, the kept match edges, and one ClusterSplit per conflicted
-    component. Every cut edge is the weakest (lowest score, then ids) on a conflicting path."""
+    component. `cut` holds every edge on any simple path between a conflicting pair, sorted."""
     by_id = {r.record_id: r for r in records}
-    score = {(p.a, p.b): p.score for p in matches}
-    kept = set(score)
+    kept = {(p.a, p.b) for p in matches}
     splits = []
-    for comp in components(by_id, kept):
-        bad = [
-            (a, b)
-            for a, b in _pairs(comp)
-            if conflict_reasons(by_id[a], by_id[b], shared_ids=shared_ids)
-        ]
-        if not bad:
-            continue
-        cut: list[Pair] = []
-        for u, v in bad:
-            while path := _path(u, v, kept):
-                weakest = min(path, key=lambda e: (score[e], e))
-                kept.discard(weakest)
-                cut.append(weakest)
-        splits.append(ClusterSplit(comp, tuple(bad), tuple(cut)))
-    return components(by_id, kept), kept, splits
+    while True:
+        found = False
+        for comp in components(by_id, kept):
+            bad = [
+                (a, b)
+                for a, b in _pairs(comp)
+                if conflict_reasons(by_id[a], by_id[b], shared_ids=shared_ids)
+            ]
+            if not bad:
+                continue
+            inside = set(comp)
+            blocks = biconnected_blocks(e for e in kept if e[0] in inside)
+            held = set().union(*(edges_between(u, v, blocks) for u, v in bad))
+            kept -= held
+            splits.append(ClusterSplit(comp, tuple(bad), tuple(sorted(held))))
+            found = True
+        if not found:
+            return components(by_id, kept), kept, splits
 
 
 def _pairs(comp: tuple[str, ...]) -> list[Pair]:

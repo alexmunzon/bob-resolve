@@ -96,8 +96,8 @@ SOURCE_AUTHORITY: Final[dict[str, int]] = {"enrollment": 0, "crm": 1}
 # DOB or MBI, the field is left empty and the person goes to review with IDENTITY_CONFLICT.
 AUTHORITATIVE_SOURCES: Final[frozenset[str]] = frozenset({"enrollment"})
 # Every record pair inside one cluster is re-checked (nickname chains are not transitive). A pair
-# at any of these comparison levels conflicts: the cluster is split at its weakest auto-match
-# links and the pairs go to review with CLUSTER_CONFLICT. Never resolved by picking.
+# at any of these comparison levels conflicts: every auto-match link on any path between them is
+# held and the pairs go to review with CLUSTER_CONFLICT. Never resolved by picking.
 CLUSTER_CONFLICT_LEVELS: Final[dict[str, frozenset[str]]] = {
     "first": frozenset({"far"}),
     "suffix": frozenset({"different"}),

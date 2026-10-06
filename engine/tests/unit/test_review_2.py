@@ -150,7 +150,7 @@ def test_name_and_dob_alone_never_auto_matches_even_when_unique(
 
 def test_metrics_use_final_edges_after_cluster_splits(hard: dict[str, NormalizedRecord]) -> None:
     """Patrick and Pat auto-match, Pat and Patricia auto-match, Patrick and Patricia conflict:
-    the cluster check cuts one edge. The cut pair is not a merge and is not found."""
+    the cluster check holds both edges (PR 21a). A held pair is not a merge and is not found."""
     patrick, patricia = hard["crm:HC-012"], hard["crm:HC-013"]
     pat = _copy(patricia, "crm:HC-012-pat", first_name="pat", first_name_canonical="patricia")
     recs = [patrick, patricia, pat]
@@ -158,11 +158,11 @@ def test_metrics_use_final_edges_after_cluster_splits(hard: dict[str, Normalized
     auto = [p for p in scored if p.decision == "AUTO_MATCH"]
     assert len(auto) == 2
     _, kept, splits = split_on_conflict(recs, auto)
-    assert len(splits) == 1 and len(kept) == 1
+    assert len(splits) == 1 and len(kept) == 0
     key = AnswerKey(clusters={"P1": ("crm:HC-012", "crm:HC-012-pat"), "P2": ("crm:HC-013",)})
     before = evaluate_scores(scored, key, False)
     after = evaluate_scores(scored, key, False, kept=kept)
-    assert before.auto_match == 2 and after.auto_match == 1 and after.cut_by_cluster == 1
-    cut = next(iter({(p.a, p.b) for p in auto} - kept))
-    assert (cut in key.pairs) == (cut in after.missed)
-    assert after.auto_merge_precision == (1.0 if next(iter(kept)) in key.pairs else 0.0)
+    assert before.auto_match == 2 and after.auto_match == 0 and after.cut_by_cluster == 2
+    for cut in sorted((p.a, p.b) for p in auto):
+        assert (cut in key.pairs) == (cut in after.missed)
+    assert after.false_merges == () and after.auto_merge_precision == 1.0
