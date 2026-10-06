@@ -75,6 +75,14 @@ describe("Review queue", () => {
     expect(reviewItems(run)[0].nearer).toBe(expected);
   });
 
+  it("never says 0.000 for a score just off a line, nor 1.000 for a score below 1", async () => {
+    const run = structuredClone(await loadDemoRun());
+    run.queue[0].pairs[0].score = 0.9904;
+    expect(reviewItems(run)[0].nearer).toBe("<0.001 above the auto-match line (0.99)");
+    run.queue[0].pairs[0].score = 0.9996;
+    expect(reviewItems(run)[0].score).toBe(">0.999");
+  });
+
   it("uses the run's thresholds and retains unscored conflict explanations", async () => {
     const run = structuredClone(await loadDemoRun());
     run.manifest.thresholds = { score_high: 0.8, score_low: 0.2 };

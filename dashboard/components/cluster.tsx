@@ -2,6 +2,7 @@ import { HouseholdGraph } from "@/components/household-graph";
 import { CARD } from "@/components/tiles";
 import type { ClusterView } from "@/lib/clusters";
 import { ruleName, sourceLabel, tierLabel } from "@/lib/explain";
+import { fixed } from "@/lib/format";
 import type { Member } from "@/lib/run-loader";
 import { cn } from "@/lib/utils";
 
@@ -96,7 +97,7 @@ export function Cluster({ view: v }: { view: ClusterView }) {
                 <td className={TD}>{e.action === "merge" ? "Merged" : "Split"}</td>
                 <td className={TD}>{e.a} and {e.b}</td>
                 <td className={TD}>{tierLabel(e.tier)}</td>
-                <td className={TD}>{e.score.toFixed(4)}</td>
+                <td className={TD}>{fixed(e.score, 4)}</td>
                 <td className={TD}>{e.rule_ids.map((r) => `${r} (${ruleName(r)})`).join(", ")}</td>
               </tr>
             ))}
