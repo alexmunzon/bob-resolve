@@ -435,6 +435,7 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     lap("scorecard")
     c["scorecard"] = scorecard(o, key, c)
     if multi is not None:
+        # Historical key name: this two-agency world is seen, not held out (PR 19).
         c["scorecard"]["held_out"] = held_out_report(multi, res, scored, c["scores"].missed)
     c["timings"] = None if o.frozen_clock else timings
     return c
