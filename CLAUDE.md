@@ -11,7 +11,7 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - `cd engine && uv run bob-resolve fixtures derive --snapshot ../fixtures/agency-a-snapshot --out ../fixtures/agency-a-derived`   rebuild the derived clean enrollment side.
 - `cd engine && uv run pytest -q tests/unit/test_cli.py -k version`   run one test file or test.
 - `cd engine && uv run bob-resolve run --enrollment snapshot --out ../runs --run-id <id>`   write one immutable run folder (add `--no-shared-ids`, `--as-of`, `--now` as needed).
-- `cd engine && uv run bob-resolve run --world multi-a-b --out ../runs --run-id <id>`   held-out two-agency world from agency-data-commons v0.2.0 (generated into git-ignored fixtures/generated/).
+- `cd engine && uv run bob-resolve run --world multi-a-b --out ../runs --run-id <id>`   seen two-agency world from agency-data-commons v0.2.0 (the matcher was tuned on it in PR 10b) (generated into git-ignored fixtures/generated/).
 - `cd engine && uv run bob-resolve review apply --run ../runs/<id> --decisions <file.jsonl> --out ../runs --run-id <new id>`   apply human decisions as a new run; the old run is never changed.
 - `npm run demo`   regenerate the committed demo run in dashboard/public/demo-run/ (derived side, shared ids on, MBI masked). Byte-identical on a rerun.
 - `cd dashboard && npm run dev`   local dashboard.

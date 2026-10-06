@@ -1,4 +1,4 @@
-"""Answer key for the held-out multi-a-b world, built by code from commons' truth files.
+"""Answer key for the seen multi-a-b world, built by code from commons' truth files.
 
 People come from commons' cluster_truth.json (every client id of both agencies, A's copies and
 B's stale copies included). Each enrollment row joins the person whose client owns its policy

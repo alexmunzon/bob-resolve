@@ -1,7 +1,8 @@
-"""PR 10: the FROZEN matcher on the held-out two-agency world (agency-data-commons v0.2.0).
+"""PR 10: the matcher on the seen two-agency world (agency-data-commons v0.2.0).
 
-The targets are SPEC decision 2 plus zero false merges on the must-not-merge list. They are
-measured, never tuned for: if one misses, it is marked xfail with the reason, not weakened.
+The targets are SPEC decision 2 plus zero false merges on the must-not-merge list. PR 10 measured
+them before tuning; PR 10b then tuned the matcher on this world, so it is a seen regression set.
+A miss is marked xfail with the reason, never weakened.
 """
 
 import csv
@@ -13,7 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from bob_resolve.cli import app
-from bob_resolve.load.commons import HELD_OUT_LABEL
+from bob_resolve.load.commons import TWO_AGENCY_LABEL
 
 NOW = "2026-10-01T12:00:00+00:00"
 MNM_TYPES = {
@@ -37,7 +38,7 @@ def run_world(out: Path, ids: bool) -> tuple[dict[str, Any], Path]:
     args += ["--out", str(out), "--run-id", "m", "--as-of", "2026-10-01", "--now", NOW]
     result = CliRunner().invoke(app, args)
     assert result.exit_code == 0, result.output
-    assert HELD_OUT_LABEL in result.output
+    assert TWO_AGENCY_LABEL in result.output
     sc: dict[str, Any] = json.loads((out / "m" / "scorecard.json").read_text())
     return sc, out / "m"
 
@@ -47,12 +48,15 @@ def held_out(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFa
     return request.param, *run_world(tmp_path_factory.mktemp("runs"), request.param)
 
 
-def test_scorecard_is_labeled_held_out_and_reports_every_type(held_out: Any) -> None:
+def test_scorecard_is_labeled_seen_and_reports_every_type(held_out: Any) -> None:
     ids, sc, _ = held_out
     assert sc["enrollment_side"] == "multi-a-b" and sc["shared_ids"] == ids
-    assert sc["enrollment_side_label"] == HELD_OUT_LABEL
+    assert sc["enrollment_side_label"] == TWO_AGENCY_LABEL
     ho = sc["held_out"]
-    assert ho["label"] == HELD_OUT_LABEL
+    assert ho["label"] == TWO_AGENCY_LABEL
+    for label in (sc["enrollment_side_label"], ho["label"]):
+        assert label.startswith("seen"), label
+        assert "never used to tune" not in label and "held-out" not in label, label
     assert set(ho["must_not_merge"]) == MNM_TYPES
     assert sum(v["pairs"] for v in ho["must_not_merge"].values()) == 164
     assert INJECTORS <= set(ho["recall_by_injector"])
