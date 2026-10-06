@@ -163,7 +163,7 @@ moved households, shared household phones and emails, a child on a parent's poli
 ## 11. PR plan
 
 Lanes: **S** serial, **B** matching engine, **C** dashboard, **X** commons (in `agency-data-commons`, after the gate).
-Under 400 lines each (expect about twice the estimate after formatting; ship it as one PR and report the real number),
+No size limit (Alex, 2026-10-06; this plan was written under an older 400-line cap), related changes may share one PR,
 tests first, one changelog fragment per PR.
 
 | PR | Name | Repo | Lane | Needs merged first | Main files | Est. lines | Done when |
