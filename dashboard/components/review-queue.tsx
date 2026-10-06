@@ -142,25 +142,29 @@ export function ReviewQueue({
         <Select label="Suggestion" value={suggestion} onChange={(value) => updateFilter("suggestion", value)} options={options.suggestions} />
         <Select label="Rule" value={rule} onChange={(value) => updateFilter("rule", value)} options={options.rules} />
         <p role="status" className={cn("text-sm tabular-nums", MUTED)}>
-          Showing {first}-{last} of {shown.length} filtered items ({items.length} total)
+          {shown.length === 0
+            ? `No items match these filters (${items.length} total)`
+            : suggestion || rule
+              ? `Showing ${first}-${last} of ${shown.length} filtered items (${items.length} total)`
+              : `Showing ${first}-${last} of ${shown.length} items`}
         </p>
       </div>
       <ol className="space-y-3">
         {pageItems.map((item) => <Item key={item.id} item={item} />)}
       </ol>
-      <nav aria-label="Review queue pages" className="flex items-center justify-between gap-4 text-sm">
+      <nav aria-label="Review queue pages" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
         {currentPage > 1
           ? <a className="underline underline-offset-2" href={pageHref(currentPage - 1)}>Previous page</a>
-          : <span className={MUTED} aria-disabled="true">Previous page</span>}
-        <span className="flex items-center gap-3">
+          : <span className={MUTED}>Previous page</span>}
+        <span className="flex flex-wrap items-center gap-3">
           {pageLinks.map((number) => number === currentPage
-            ? <span key={number} aria-current="page" className="font-semibold tabular-nums">Page {number}</span>
-            : <a key={number} className="underline underline-offset-2 tabular-nums" href={pageHref(number)}>Page {number}</a>)}
-          <span className={cn("tabular-nums", MUTED)}>of {pageCount}</span>
+            ? <span key={number} aria-current="page" className="font-semibold tabular-nums">{number}</span>
+            : <a key={number} className="underline underline-offset-2 tabular-nums" href={pageHref(number)} aria-label={`Page ${number}`}>{number}</a>)}
+          <span className={cn("tabular-nums", MUTED)}>of {pageCount} pages</span>
         </span>
         {currentPage < pageCount
           ? <a className="underline underline-offset-2" href={pageHref(currentPage + 1)}>Next page</a>
-          : <span className={MUTED} aria-disabled="true">Next page</span>}
+          : <span className={MUTED}>Next page</span>}
       </nav>
     </section>
   );
