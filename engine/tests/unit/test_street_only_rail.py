@@ -19,7 +19,7 @@ from bob_resolve.load.records import Lineage, PersonRecord
 from bob_resolve.normalize.record import NormalizedRecord, normalize_record
 from bob_resolve.queue import build_queue
 from bob_resolve.score import ScoredPair, score_candidates, score_pair
-from bob_resolve.score.rules import ambiguous_keys
+from bob_resolve.score.rules import ambiguous_keys, identity_key
 
 HOME = "40 sample care way"
 ID = {"mbi": None, "phone": None, "email": None, "address_line1": None, "suffix": None}
@@ -78,7 +78,7 @@ def test_two_residents_ids_on_with_different_mbis_never_auto_match() -> None:
     a, b = residents(2)
     p = pair([a, b], a.record_id, b.record_id, True)
     assert p.decision == "GRAY" and p.suggestion == "unsure"
-    assert "GR-008" in p.guard_rails
+    assert set(p.guard_rails) == {"GR-004", "GR-008"}
 
 
 # b. Three or more residents with one name and DOB at one street.
@@ -170,8 +170,34 @@ def test_distinct_apartments_are_not_gr_008(ids: bool) -> None:
     assert "GR-008" not in p.guard_rails and "GR-007" in p.guard_rails
 
 
+# g. GR-004 with shared ids on: a differing MBI is never excused.
+
+
 def keys(recs: list[NormalizedRecord], ids: bool) -> set[tuple[str, str, str]]:
     return ambiguous_keys(recs, ids)
+
+
+def test_different_mbis_tied_only_by_street_are_ambiguous() -> None:
+    a, b = residents(2)
+    assert identity_key(a) in keys([a, b], True)
+
+
+def test_different_mbis_tied_by_a_phone_chain_are_still_ambiguous() -> None:
+    a = rec("crm:P-1", "wren", "halloway", "19380412", mbi="9WH0WH0WH01", phone="5550100300")
+    mid = rec("crm:P-2", "wren", "halloway", "19380412", phone="5550100300",
+              email="w@example.com")  # fmt: skip
+    b = rec("crm:P-3", "wren", "halloway", "19380412", mbi="9WH0WH0WH02", email="w@example.com")
+    assert identity_key(a) in keys([a, mid, b], True)
+
+
+def test_a_person_who_moved_with_one_mbi_is_not_ambiguous() -> None:
+    old = rec("crm:V-1", "joel", "pike", "19480101", mbi="9JP0JP0JP01", phone="5550100401",
+              email="old@example.com", address_line1="1 old rd")  # fmt: skip
+    new = rec("crm:V-2", "joel", "pike", "19480101", mbi="9JP0JP0JP01", phone="5550100402",
+              email="new@example.com", address_line1="9 new st")  # fmt: skip
+    assert keys([old, new], True) == set()
+    p = pair([old, new], old.record_id, new.record_id, True)
+    assert p.decision == "AUTO_MATCH" and p.guard_rails == ()
 
 
 # h. Shared ids off: MBI and policy values are never consulted.
@@ -212,6 +238,16 @@ def test_name_dob_plus_email_or_phone_unchanged_and_gr_007_alone(ids: bool) -> N
     p = pair([a, b], a.record_id, b.record_id, ids)
     assert p.guard_rails == ("GR-007",)
     exclusive(p)
+
+
+# j. A shared household phone (documents behaviour; not a guarantee with ids off).
+
+
+def test_two_people_sharing_a_phone_with_different_mbis_never_auto_match() -> None:
+    a = rec("crm:H-1", "wren", "halloway", "19380412", mbi="9WH0WH0WH01", phone="5550100600")
+    b = rec("crm:H-2", "wren", "halloway", "19380412", mbi="9WH0WH0WH02", phone="5550100600")
+    p = pair([a, b], a.record_id, b.record_id, True)
+    assert p.decision != "AUTO_MATCH" and "GR-004" in p.guard_rails
 
 
 # End to end: two facility residents become two golden people and one review item.

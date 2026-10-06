@@ -2,7 +2,7 @@
 
 1. GR-007 (Alex, 2026-10-05): name plus DOB as the only agreeing evidence never auto-merges.
 2. GR-005: opposite-sex look-alikes one edit apart at the end of the name are not a typo.
-3. GR-004: a person's own records (tied by MBI, phone, email, or street) are never ambiguous
+3. GR-004: a person's own records (tied by MBI, phone, or email) are never ambiguous
    with each other, so a person who moved is not ambiguous with themselves.
 """
 
@@ -165,7 +165,7 @@ def test_joshua_carter_who_moved_is_not_ambiguous_with_himself(ids: bool) -> Non
     recs = [old, new, stale, enr]
     p = pair(recs, old.record_id, new.record_id, ids)
     assert "GR-004" not in p.guard_rails and p.decision == "AUTO_MATCH"
-    q = pair(recs, new.record_id, stale.record_id, ids)  # stale copy: tied to old by street
+    q = pair(recs, new.record_id, stale.record_id, ids)  # stale copy: tied to old by phone
     assert "GR-004" not in q.guard_rails
 
 
