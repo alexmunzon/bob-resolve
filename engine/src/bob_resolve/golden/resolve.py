@@ -91,7 +91,10 @@ def resolve(
                 severity="normal",
                 record_ids=s.records,
                 pairs=tuple(sorted(set(s.conflicts) | set(s.cut))),
-                detail="Auto-matches chained records that conflict; split at the weakest links.",
+                detail=(
+                    "Automatic matches chained together records that conflict. Every link "
+                    "between them is held for a person to review; none was kept automatically."
+                ),
             )
         )
     for p in sorted(matches, key=lambda p: (p.a, p.b)):
