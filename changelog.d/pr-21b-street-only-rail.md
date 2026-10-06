@@ -4,4 +4,4 @@
 - Street stays independent evidence for GR-006 and GR-007, so GR-007 and GR-008 never fire together. A far-year birth date digit swap whose only support is a shared street now gets GR-008.
 - Recall cost, measured on synthetic data (seen two-agency world): automatic merges fall from 4766 to 4706 with shared ids on and from 298 to 42 with shared ids off; those pairs now wait in review. Auto-merge precision stays 1.0. Alex accepted the cost: the e2e bar "recall if suggestions confirmed is at least 0.90" on commons client pairs (now 0.8125 and 0.125) is replaced by a check that every one of the 320 pairs is merged or is a listed pair of a review item with a reason.
 - MBI and policy values are still never read with shared ids off. Nothing detects a facility by its name or by record ids.
-- Dashboard: GR-008 explained in plain words; the GR-004 text corrected. The committed demo scorecard now lists GR-008 with 0 hits.
+- Dashboard: GR-008 explained in plain words. The committed demo scorecard now lists GR-008 with 0 hits.

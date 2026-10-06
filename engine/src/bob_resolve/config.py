@@ -178,6 +178,6 @@ PERSON_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
 }
 # PR 10b (GR-004, orchestrator): a holder tied to a pair record by one of these exact fields is
 # that person's own record, so its conflicts with the pair's other own records are not ambiguity
-# (a person who moved). MBI ties only when shared ids are on. PR 21b: a shared street no longer
+# (a person who moved). MBI ties only when shared ids are on. PR 21c: a shared street no longer
 # ties (household context), and a differing MBI (ids on) is never excused by any tie.
 OWN_RECORD_TIE_FIELDS: Final[tuple[str, ...]] = ("mbi", "phone", "email")

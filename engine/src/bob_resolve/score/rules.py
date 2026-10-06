@@ -179,7 +179,7 @@ def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set
     """GR-004: identity keys held by two or more records where two holders conflict. Two
     holders tied together (directly or through a chain of ties) are one person's own records,
     so their conflict does not count (PR 10b): a person who moved is not ambiguous. With shared
-    ids on, two different MBIs always conflict, whatever ties the holders (PR 21b)."""
+    ids on, two different MBIs always conflict, whatever ties the holders (PR 21c)."""
     holders: dict[IdentityKey, list[NormalizedRecord]] = defaultdict(list)
     for r in records:
         if (k := identity_key(r)) is not None:

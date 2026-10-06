@@ -3,8 +3,9 @@
 Stress test finding 2: two fictional residents of one care facility share first name, last
 name, DOB and street, with different emails and MBIs. With shared ids off the street was the
 only extra agreement, so the pair auto-merged. GR-008 sends name plus DOB plus a shared street
-only to review with an honest "unsure". A shared street no longer ties two holders as one
-person's own records in GR-004, and with shared ids on a differing MBI always conflicts.
+only to review with an honest "unsure". PR 21c (cases a, g, j): a shared street no longer ties
+two holders as one person's own records in GR-004, and with shared ids on a differing MBI always
+conflicts.
 All records here are hand-written and fictional.
 """
 
