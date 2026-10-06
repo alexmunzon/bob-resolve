@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { SeverityBadge } from "@/components/severity-badge";
 import { CARD, Tile } from "@/components/tiles";
 import { count, plural } from "@/lib/format";
@@ -15,7 +17,7 @@ function Panel({ title, rows, children }: { title: string; rows: Row[]; children
         {rows.map((row) => (
           <div key={row.label}>
             <div className="flex justify-between gap-2">
-              <dt>{row.label}</dt>
+              <dt>{row.href ? <Link href={row.href} className="text-indigo-700 underline dark:text-indigo-300">{row.label}</Link> : row.label}</dt>
               <dd className="font-medium tabular-nums">{row.value}</dd>
             </div>
             {row.note && <p className={cn("text-xs", MUTED)}>{row.note}</p>}
@@ -31,7 +33,9 @@ function MetricCard({ m }: { m: MetricView }) {
     <div role="group" aria-label={m.name} className={cn(CARD, "p-4")}>
       <div className="flex items-center justify-between gap-2">
         <p className={cn("text-sm", MUTED)}>{m.name}</p>
-        <SeverityBadge tone={m.meets ? "pass" : "error"} label={m.meets ? "Meets target" : "Below target"} />
+        {m.meets !== null && (
+          <SeverityBadge tone={m.meets ? "pass" : "error"} label={m.meets ? "Meets target" : "Below target"} />
+        )}
       </div>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{m.value}</p>
       <p className={cn("text-xs tabular-nums", MUTED)}>{m.target}. {m.context}</p>
@@ -63,11 +67,12 @@ export function Overview({ data: d }: { data: OverviewData }) {
       </div>
       <section aria-labelledby="sure-heading" className="space-y-2">
         <h2 id="sure-heading" className="text-sm font-semibold">How sure are we? Measured on synthetic data</h2>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {d.metrics.map((m) => <MetricCard key={m.name} m={m} />)}
         </div>
       </section>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <Panel title="Review status" rows={d.reviewStatus} />
         <Panel title="Merges by tier" rows={d.tiers} />
         <Panel title={`Review queue: ${plural(d.queueSize, "item")}`} rows={d.suggestions.map((s) => ({ ...s, label: `Suggests ${s.label.toLowerCase()}` }))}>
           <p className="mt-2 flex flex-wrap gap-2 text-sm tabular-nums">

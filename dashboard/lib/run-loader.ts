@@ -26,6 +26,15 @@ export interface Manifest {
   thresholds?: { score_high: number; score_low: number };
 }
 
+/** How the true pairs ended up. Older runs do not write it. */
+export interface Resolution {
+  true_pairs: number;
+  found_automatically: number;
+  suggested_same_person: number;
+  human_confirmed_merges: number;
+  awaiting_review: number;
+}
+
 export interface Scorecard {
   records_in: number;
   people: number;
@@ -39,6 +48,7 @@ export interface Scorecard {
   metrics: Record<"blocking_recall" | "auto_merge_precision" | "recall_after_review", Metric>;
   per_tier: { jev: { calls: number; mode: Mode }; llm: { calls: number; mode: Mode } };
   review_queue: { size: number; by_severity: Record<string, number>; by_reason: Record<string, number> };
+  resolution?: Resolution;
   unidentifiable_records?: { record_id: string; source_file: string; row_number: number }[];
 }
 
@@ -206,6 +216,28 @@ function usage(value: unknown, where: string): void {
   check(typeof u.cost_usd === "number" && Number.isFinite(u.cost_usd) && u.cost_usd >= 0, where, "cost_usd must be a number, 0 or more");
 }
 
+const RESOLUTION_KEYS = [
+  "true_pairs", "found_automatically", "suggested_same_person", "human_confirmed_merges", "awaiting_review",
+] as const;
+
+/** Optional, but when present every count must be a whole number, so the Overview never shows a made-up rate. */
+function resolution(value: unknown): void {
+  if (value === undefined) return;
+  const where = `${FILE_NAMES.scorecard} resolution`;
+  check(typeof value === "object" && value !== null && !Array.isArray(value), where, "expected an object");
+  const r = value as Record<string, unknown>;
+  for (const key of RESOLUTION_KEYS) {
+    const n = r[key];
+    check(typeof n === "number" && Number.isInteger(n) && n >= 0, where, `${key} must be a whole number, 0 or more`);
+  }
+  check((r.found_automatically as number) <= (r.true_pairs as number), where, "more pairs found than true pairs");
+  check(
+    (r.found_automatically as number) + (r.suggested_same_person as number) <= (r.true_pairs as number),
+    where,
+    "found plus suggested pairs exceed true pairs",
+  );
+}
+
 export function parseRun(files: RunFiles): Run {
   const manifest = parseJson(files.manifest, FILE_NAMES.manifest);
   needs(manifest, FILE_NAMES.manifest, ["run_id", "created_at", "as_of", "jev", "llm", "timings_ms", "versions"]);
@@ -217,6 +249,7 @@ export function parseRun(files: RunFiles): Run {
     "records_in", "people", "households", "unidentifiable", "merges", "metrics", "per_tier", "review_queue", "label",
   ]);
   check(scorecard.label === "measured on synthetic data", FILE_NAMES.scorecard, "label must say measured on synthetic data");
+  resolution(scorecard.resolution);
 
   const queue = jsonLines(files.queue, FILE_NAMES.queue).map((item, i) => {
     const where = `${FILE_NAMES.queue} line ${i + 1}`;
