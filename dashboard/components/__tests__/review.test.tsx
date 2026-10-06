@@ -48,6 +48,44 @@ describe("Review queue", () => {
     expect(card).toHaveTextContent(/Name and birth date only/);
   });
 
+  it("explains the above-threshold demo pair without hiding GR-007", async () => {
+    const { run } = await show();
+    expect(run.queue[0].item_id).toBe("rq-19c565980cb7");
+    expect(run.queue[0].pairs[0].score).toBeGreaterThan(run.manifest.thresholds!.score_high);
+    const card = screen.getByRole("listitem", { name: `Item 1: ${run.queue[0].item_id}` });
+    expect(card).toHaveTextContent("Score 0.998, 0.008 above the auto-match line (0.99)");
+    expect(card).toHaveTextContent("Suggestion: Unsure");
+    expect(card).toHaveTextContent("GR-007 Name and birth date only");
+    expect(card).toHaveTextContent(/Nothing else agrees.*so a person decides/);
+  });
+
+  it.each([
+    [0.98, "0.010 below the auto-match line (0.99)"],
+    [0.99, "at the auto-match line (0.99)"],
+    [1, "0.010 above the auto-match line (0.99)"],
+    [0.2, "0.100 above the auto-reject line (0.1)"],
+    [0.1, "at the auto-reject line (0.1)"],
+    [0.03, "0.070 below the auto-reject line (0.1)"],
+  ])("describes the displayed score %s relative to the nearest threshold", async (score, expected) => {
+    const run = structuredClone(await loadDemoRun());
+    run.queue[0].pairs[0].score = score;
+    // Ranking distance can describe a different pair in a group. It is not this score's distance.
+    run.queue[0].cutoff_distance = 0.007527;
+    expect(reviewItems(run)[0].nearer).toBe(expected);
+  });
+
+  it("uses the run's thresholds and retains unscored conflict explanations", async () => {
+    const run = structuredClone(await loadDemoRun());
+    run.manifest.thresholds = { score_high: 0.8, score_low: 0.2 };
+    run.queue[0].pairs[0].score = 0.75;
+    expect(reviewItems(run)[0].nearer).toBe("0.050 below the auto-match line (0.8)");
+    run.queue[0].pairs = [];
+    run.queue[0].rule_ids = ["IDENTITY_CONFLICT"];
+    const item = reviewItems(run)[0];
+    expect(item.nearer).toBe("No scored pair");
+    expect(item.rules[0].text).toContain("The engine never guesses");
+  });
+
   it("explains every rule id the engine can write", () => {
     for (const id of ["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007", "CLUSTER_CONFLICT", "IDENTITY_CONFLICT"]) {
       expect(RULES[id].text.length).toBeGreaterThan(20);

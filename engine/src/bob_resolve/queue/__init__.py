@@ -171,6 +171,15 @@ def build_queue(
     items = []
     for p in res.pending_gray:
         conflict = p.reason == "IDENTITY_CONFLICT"
+        if conflict:
+            detail = "Shared MBI with birth dates that are not close (GR-002); not merged."
+        elif p.guard_rails:
+            detail = (
+                f"Guard rails {', '.join(p.guard_rails)} require human review "
+                "regardless of the score."
+            )
+        else:
+            detail = "Score between the auto-reject and auto-match lines; Jev is off."
         items.append(
             item(
                 "gray_pair",
@@ -179,9 +188,7 @@ def build_queue(
                 [(p.a, p.b)],
                 p.suggestion or "unsure",
                 p.guard_rails or ("SCORE-GRAY",),
-                "Shared MBI with birth dates that are not close (GR-002); not merged."
-                if conflict
-                else "Score between the auto-reject and auto-match lines; Jev is off.",
+                detail,
             )
         )
     for r in res.review:

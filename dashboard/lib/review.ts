@@ -63,8 +63,12 @@ function nearerLine(item: QueueItem, run: Run): string {
   if (score === undefined) return "No scored pair";
   const high = run.manifest.thresholds?.score_high ?? 0.99;
   const low = run.manifest.thresholds?.score_low ?? 0.1;
-  const d = item.cutoff_distance.toFixed(3);
-  return high - score <= score - low ? `${d} below the auto-match line (${high})` : `${d} above the auto-reject line (${low})`;
+  const matchIsNearer = Math.abs(high - score) <= Math.abs(score - low);
+  const cutoff = matchIsNearer ? high : low;
+  const line = matchIsNearer ? "auto-match" : "auto-reject";
+  if (score === cutoff) return `at the ${line} line (${cutoff})`;
+  const direction = score > cutoff ? "above" : "below";
+  return `${Math.abs(score - cutoff).toFixed(3)} ${direction} the ${line} line (${cutoff})`;
 }
 
 export function reviewItems(run: Run) {
