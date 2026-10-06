@@ -4,13 +4,18 @@ import tomllib
 from collections import Counter
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import synth_agency_data
 
+from bob_resolve.golden import GoldenPerson, Resolution
 from bob_resolve.load.commons import EXPECTED_SHA256, HELD_OUT_LABEL, ensure_multi_a_b
-from bob_resolve.run import input_files, load_world
+from bob_resolve.mergelog import MergeLogEntry
+from bob_resolve.run import held_out_report, input_files, load_world
 from bob_resolve.run import sha256 as file_sha256
-from bob_resolve.truth.multi import build_multi_truth
+from bob_resolve.score.rules import ScoredPair
+from bob_resolve.truth import AnswerKey
+from bob_resolve.truth.multi import MultiTruth, build_multi_truth
 
 FIXTURES = Path(__file__).resolve().parents[3] / "fixtures"
 ENGINE = Path(__file__).resolve().parents[2]
@@ -72,3 +77,44 @@ def test_run_needs_exactly_one_of_world_or_enrollment(tmp_path: Path) -> None:
     neither = CliRunner().invoke(app, base)
     assert both.exit_code == 2 and neither.exit_code == 2
     assert not (tmp_path / "x").exists()
+
+
+def _held_out_case() -> dict[str, Any]:
+    """PR 18: four commons pairs. A1-A2 auto-merged, G1-G2 gray with a same-person suggestion
+    that a reviewer confirmed (a human merge, not an automatic one), C1-C2 auto-matched but cut
+    by a cluster conflict, M1-M2 rejected."""
+    pairs = {("crm:A1", "crm:A2"): ("maiden_name",), ("crm:G1", "crm:G2"): ("maiden_name",),
+             ("crm:C1", "crm:C2"): (), ("crm:M1", "crm:M2"): ()}  # fmt: skip
+    key = AnswerKey(clusters={f"P{x}": (f"crm:{x}1", f"crm:{x}2") for x in "AGCM"})
+    truth = MultiTruth.model_construct(key=key, commons_clusters=4, commons_pairs=pairs,
+                                       pair_scope={}, must_not_merge=())  # fmt: skip
+    decision = {"A": "AUTO_MATCH", "G": "GRAY", "C": "AUTO_MATCH", "M": "AUTO_REJECT"}
+    scored = [ScoredPair.model_construct(a=a, b=b, decision=decision[a[4]],
+                                         suggestion="same_person" if a[4] == "G" else None)
+              for a, b in pairs]  # fmt: skip
+    merged = {"A": "rules", "G": "review"}
+    log = tuple(MergeLogEntry.model_construct(action="merge", a=f"crm:{x}1", b=f"crm:{x}2",
+                                              tier=tier) for x, tier in merged.items())  # fmt: skip
+    people = tuple(GoldenPerson.model_construct(person_id=f"g{x}", record_ids=(f"crm:{x}1",
+                                                f"crm:{x}2")) for x in merged)  # fmt: skip
+    res = Resolution.model_construct(people=people, log=log)
+    missed = (("crm:C1", "crm:C2"), ("crm:M1", "crm:M2"))
+    return held_out_report(truth, res, scored, missed)
+
+
+def test_held_out_automatic_recall_excludes_suggestions_and_human_merges() -> None:
+    ho = _held_out_case()
+    assert ho["commons_pairs"] == {
+        "pairs": 4, "found_automatically": 1, "automatic_recall": 0.25,
+        "suggested_same_person": 1, "recall_if_suggestions_confirmed": 0.5, "one_person": 2,
+        "missed_examples": [["crm:C1", "crm:C2"], ["crm:M1", "crm:M2"]],
+    }  # fmt: skip
+    maiden = ho["recall_by_injector"]["maiden_name"]
+    assert (maiden["automatic_recall"], maiden["recall_if_suggestions_confirmed"]) == (0.5, 1.0)
+    assert ho["recall_by_injector"]["none"]["automatic_recall"] == 0.0
+
+
+def test_held_out_pair_blocks_have_no_plain_recall_or_found_key() -> None:
+    ho = _held_out_case()
+    for block in [ho["commons_pairs"], *ho["recall_by_injector"].values()]:
+        assert not {"recall", "found"} & set(block), block

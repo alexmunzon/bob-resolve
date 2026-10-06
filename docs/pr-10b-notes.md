@@ -58,6 +58,10 @@ Multi-a-b, now labeled **seen** (a regression set, no longer held out):
 | on | 0.9938 (PR 10: 0.8938) | 0 of 164 (PR 10: twins 4) | 30 of 32 (PR 10: 7) |
 | off | 0.9250 (PR 10: 0.8812) | 0 of 164 (PR 10: twins 12, name_dob 4) | 8 of 32 (PR 10: 2) |
 
+Note (PR 18): "Commons 320 pairs recall" above counts pairs only suggested as the same person, with no
+reviewer confirming them. It is now `recall_if_suggestions_confirmed`. The engine's own `automatic_recall` on the
+same 320 pairs is 0.9625 with shared ids and 0.8063 without.
+
 0 merges in every must-not-merge type (twin_lookalike, name_dob_lookalike, father_son_same_name,
 child_on_parent_policy, shared_household_contact) in both modes. Blocking recall 1.0 everywhere.
 0 people holding two true people in every set.

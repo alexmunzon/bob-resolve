@@ -53,6 +53,10 @@ never used to tune the matcher. Measured on synthetic data, as of 2026-10-01.
 | on | 1.0000 | 0.9994 | 4,645 | 565 | 0.9573 | 0.8938 | 4 (twins 4) |
 | off | 1.0000 | 0.9970 | 4,595 | 660 | 0.9322 | 0.8812 | 16 (twins 12, same name and DOB 4) |
 
+Note (PR 18): "Recall after review" and "Commons 320 pairs recall" above count a pair as found when it was only
+suggested as the same person, with no reviewer confirming it. PR 18 renames the commons figure
+`recall_if_suggestions_confirmed` and adds `automatic_recall`, which counts only the engine's own merges.
+
 Spouses (42), child on parent policy (36), father and son (36): 0 merged in both modes.
 Queue: 568 (98 high) with shared ids, 674 (75 high) without.
 

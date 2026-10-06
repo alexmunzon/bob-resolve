@@ -57,8 +57,11 @@ def test_scorecard_is_labeled_held_out_and_reports_every_type(held_out: Any) -> 
     assert sum(v["pairs"] for v in ho["must_not_merge"].values()) == 164
     assert INJECTORS <= set(ho["recall_by_injector"])
     assert ho["commons_pairs"]["pairs"] == 320
-    for v in ho["recall_by_injector"].values():
-        assert 0 <= v["found"] <= v["pairs"] and v["recall"] == round(v["found"] / v["pairs"], 6)
+    for v in [ho["commons_pairs"], *ho["recall_by_injector"].values()]:
+        auto, sugg, n = v["found_automatically"], v["suggested_same_person"], v["pairs"]
+        assert 0 <= auto <= auto + sugg <= n and not {"recall", "found"} & set(v)
+        assert v["automatic_recall"] == round(auto / n, 6)
+        assert v["recall_if_suggestions_confirmed"] == round((auto + sugg) / n, 6)
 
 
 TARGETS = [("blocking_recall", 0.98), ("auto_merge_precision", 0.99), ("recall_after_review", 0.90)]
@@ -94,9 +97,12 @@ def test_zero_false_merges_on_the_must_not_merge_list(held_out: Any) -> None:
 
 def test_recall_after_review_on_the_commons_client_pairs(held_out: Any) -> None:
     """The overall target counts every record pair, mostly easy CRM-to-enrollment pairs inside
-    one agency. This one counts only commons' 320 client pairs (312 across the agencies)."""
+    one agency. This one counts only commons' 320 client pairs (312 across the agencies).
+    PR 18: it counts same-person suggestions as found, so it is the hypothetical figure."""
     _, sc, _ = held_out
-    assert sc["held_out"]["commons_pairs"]["recall"] >= 0.90
+    cp = sc["held_out"]["commons_pairs"]
+    assert cp["recall_if_suggestions_confirmed"] >= 0.90
+    assert cp["automatic_recall"] <= cp["recall_if_suggestions_confirmed"]
 
 
 def test_pr_10_examples(held_out: Any) -> None:
