@@ -286,10 +286,17 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
 def held_out_report(
     t: MultiTruth, res: Resolution, scored: list[ScoredPair], missed: tuple[tuple[str, str], ...]
 ) -> dict[str, Any]:
-    """PR 10 additions for the held-out world. A commons pair is "found" as in recall after
-    review (merged, or gray with "same person"); "one_person" means the final golden record
-    holds both. A must-not-merge pair is "merged" when one golden person holds any record of
-    each of the two true people (their enrollment rows included, not only the two clients)."""
+    """PR 10 additions for the held-out world, with PR 18's honest recall names.
+
+    Each commons pair block counts the same way as the main scorecard's resolution block:
+    "found_automatically" pairs were merged by the engine on its own (an auto-match kept after
+    cluster splits; a reviewer's merge does not count), and "automatic_recall" is their share.
+    "suggested_same_person" pairs were not merged automatically but sit in review marked "same
+    person"; "recall_if_suggestions_confirmed" is the hypothetical share if a person confirmed
+    every one of them. "one_person" means the final golden record holds both records.
+
+    A must-not-merge pair is "merged" when one golden person holds any record of each of the
+    two true people (their enrollment rows included, not only the two clients)."""
     person = {r: p.person_id for p in res.people for r in p.record_ids}
     golden_of: dict[str, set[str]] = defaultdict(set)  # true person to their golden people
     for rec, true_person in t.key.person_of.items():
@@ -297,13 +304,21 @@ def held_out_report(
     gray_same = {
         (p.a, p.b) for p in scored if p.decision == "GRAY" and p.suggestion == "same_person"
     }
+    kept = {(e.a, e.b) for e in res.log if e.action == "merge"}  # as in evaluate_scores
+    auto = {(p.a, p.b) for p in scored if p.decision == "AUTO_MATCH"} & kept
     lost = set(missed)
 
+    def rate(n: int, pairs: list[tuple[str, str]]) -> float:
+        return round(n / len(pairs), 6) if pairs else 1.0
+
     def recall(pairs: list[tuple[str, str]]) -> dict[str, Any]:
-        found = [x for x in pairs if x not in lost]
+        found = sum(x not in lost for x in pairs)
+        by_rules = sum(x in auto for x in pairs)
         one = [x for x in pairs if person.get(x[0], x[0]) == person.get(x[1], x[1])]
-        return {"pairs": len(pairs), "found": len(found), "one_person": len(one),
-                "recall": round(len(found) / len(pairs), 6) if pairs else 1.0,
+        return {"pairs": len(pairs), "found_automatically": by_rules,
+                "automatic_recall": rate(by_rules, pairs),
+                "suggested_same_person": found - by_rules,
+                "recall_if_suggestions_confirmed": rate(found, pairs), "one_person": len(one),
                 "missed_examples": [list(x) for x in sorted(lost & set(pairs))[:3]]}  # fmt: skip
 
     by_type: dict[str, list[tuple[str, str]]] = defaultdict(list)
