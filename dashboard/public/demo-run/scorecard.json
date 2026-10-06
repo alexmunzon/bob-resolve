@@ -63,6 +63,13 @@
     }
   },
   "records_in": 3887,
+  "resolution": {
+    "awaiting_review": 19,
+    "found_automatically": 2159,
+    "human_confirmed_merges": 0,
+    "suggested_same_person": 0,
+    "true_pairs": 2167
+  },
   "review_queue": {
     "by_reason": {
       "GRAY_ZONE": 19

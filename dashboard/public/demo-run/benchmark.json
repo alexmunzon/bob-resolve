@@ -1,0 +1,26 @@
+{
+  "generated_at": null,
+  "label": "measured on synthetic data",
+  "runs": [
+    {
+      "candidate_pairs": 3458,
+      "dataset": {
+        "label": "derived from the answer key",
+        "side": "derived",
+        "status": "derived"
+      },
+      "metrics": {
+        "automatic_f1": 0.998151,
+        "automatic_precision": 1.0,
+        "automatic_recall": 0.996308,
+        "awaiting_review": 19,
+        "human_confirmed_merges": 0,
+        "recall_if_suggestions_confirmed": 0.996308
+      },
+      "model_tiers_used": [],
+      "run_id": "demo-run",
+      "shared_ids": true
+    }
+  ],
+  "schema_version": 1
+}

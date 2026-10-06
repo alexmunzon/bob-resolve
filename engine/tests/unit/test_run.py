@@ -27,13 +27,22 @@ def test_run_is_byte_identical_and_refuses_to_overwrite(tmp_path: Path) -> None:
     a = files(tmp_path / "a")
     assert set(a) == {"manifest.json", "people.csv", "people.parquet", "households.json",
                       "members.jsonl", "merge_log.jsonl", "review_queue.jsonl",
-                      "scorecard.json"}  # fmt: skip
+                      "scorecard.json", "benchmark.json"}  # fmt: skip
     assert files(tmp_path / "again" / "a") == a
     code, out = run(tmp_path, "a")
     assert code == 1 and "immutable" in out and files(tmp_path / "a") == a
     assert run(tmp_path, "a", "--overwrite")[0] == 0 and files(tmp_path / "a") == a
     m = verify_folder(tmp_path / "a")
     assert m["timings_ms"] is None and str(tmp_path) not in json.dumps(m)
+    assert m["outputs"]["benchmark.json"]
+    card = json.loads((tmp_path / "a" / "scorecard.json").read_text())
+    res, rules = card["resolution"], card["per_tier"]["rules"]
+    assert res["true_pairs"] == card["true_pairs"]
+    assert res["found_automatically"] <= rules["auto_match"]
+    assert res["human_confirmed_merges"] == card["merges"]["review"] == 0
+    assert res["awaiting_review"] == card["review_queue"]["size"]
+    found = (res["found_automatically"] + res["suggested_same_person"]) / res["true_pairs"]
+    assert round(found, 6) == card["metrics"]["recall_after_review"]["value"]
 
 
 def test_mask_mbi_keeps_last_four() -> None:
@@ -74,6 +83,11 @@ def test_review_apply_appends_and_never_touches_the_old_run(tmp_path: Path) -> N
     assert nina not in ids and twins not in ids
     assert len(new["decisions.jsonl"].splitlines()) == 2
     assert json.loads(new["manifest.json"])["parent_run_id"] == "r1"
+    before, after = (json.loads(f["scorecard.json"])["resolution"] for f in (old, new))
+    assert after["human_confirmed_merges"] == before["human_confirmed_merges"] + 1
+    assert after["found_automatically"] == before["found_automatically"]
+    assert after["awaiting_review"] == len(new["review_queue.jsonl"].splitlines())
+    assert json.loads(new["benchmark.json"])["runs"][0]["metrics"]["human_confirmed_merges"] == 1
 
 
 def test_review_apply_refuses_unknown_items(tmp_path: Path) -> None:
