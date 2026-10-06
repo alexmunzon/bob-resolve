@@ -1,13 +1,17 @@
 import { HowToDecide } from "@/components/how-to-decide";
 import { ReviewQueue } from "@/components/review-queue";
-import { reviewItems } from "@/lib/review";
+import { filterOptions, reviewItems } from "@/lib/review";
+import { parseReviewQuery } from "@/lib/review-query";
 import { loadDemoRun } from "@/lib/run-dir";
 
 export const metadata = { title: "Review queue | bob-resolve" };
 
-// Built once from the committed demo run. Filters run in the browser; nothing is written.
-export default async function ReviewPage() {
+// Rendered per request because it reads the page and filters from the URL. It only reads the demo run; nothing is written.
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+export default async function ReviewPage({ searchParams }: { searchParams?: SearchParams }) {
   const items = reviewItems(await loadDemoRun());
+  const initial = parseReviewQuery(searchParams ? await searchParams : {}, filterOptions(items));
   return (
     <div className="space-y-4">
       <header>
@@ -18,7 +22,7 @@ export default async function ReviewPage() {
         </p>
       </header>
       <HowToDecide />
-      <ReviewQueue items={items} />
+      <ReviewQueue items={items} initialPage={initial.page} initialSuggestion={initial.suggestion} initialRule={initial.rule} />
     </div>
   );
 }

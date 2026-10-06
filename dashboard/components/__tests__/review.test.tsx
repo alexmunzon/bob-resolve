@@ -9,6 +9,7 @@ import { loadDemoRun } from "@/lib/run-dir";
 import { expectNoMbiOrDash } from "./no-mbi";
 
 async function show() {
+  window.history.replaceState(null, "", "/review");
   const run = await loadDemoRun();
   const items = reviewItems(run);
   render(<><HowToDecide /><ReviewQueue items={items} /></>);
@@ -99,10 +100,75 @@ describe("Review queue", () => {
     expect(shown()).toHaveLength(10);
     fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "GR-005" } });
     expect(shown()).toHaveLength(9);
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 9 of 19 items");
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1-9 of 9 filtered items (19 total)");
     fireEvent.change(screen.getByLabelText("Suggestion"), { target: { value: "unsure" } });
     expect(screen.queryAllByRole("listitem", { name: /^Item / })).toHaveLength(0);
     expect(applyFilters(items, "", "SCORE-GRAY")).toHaveLength(1);
+  });
+
+  it("bounds rendered items and keeps paging links bookmarkable", async () => {
+    const run = await loadDemoRun();
+    const source = reviewItems(run);
+    const items = Array.from({ length: 61 }, (_, i) => ({
+      ...source[i % source.length],
+      id: `item-${i + 1}`,
+      position: i + 1,
+    }));
+    render(<ReviewQueue items={items} />);
+
+    expect(shown()).toHaveLength(25);
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1-25 of 61 items");
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute("href", "/review?page=2");
+    expect(screen.getByRole("link", { name: "Page 3" })).toHaveAttribute("href", "/review?page=3");
+  });
+
+  it("opens a deep-linked page and resets to page one when a filter changes", async () => {
+    const run = await loadDemoRun();
+    const source = reviewItems(run);
+    const items = Array.from({ length: 61 }, (_, i) => ({
+      ...source[i % source.length],
+      id: `item-${i + 1}`,
+      position: i + 1,
+    }));
+    window.history.replaceState(null, "", "/review?page=2&suggestion=different_people");
+    render(<ReviewQueue items={items} initialPage={2} initialSuggestion="different_people" />);
+
+    const suggestionItems = applyFilters(items, "different_people", "");
+    const filteredItems = applyFilters(items, "different_people", "GR-005");
+    expect(shown()[0]).toHaveAccessibleName(`Item ${suggestionItems[25].position}: ${suggestionItems[25].id}`);
+    expect(screen.getByRole("status")).toHaveTextContent(`Showing 26-${Math.min(50, suggestionItems.length)} of ${suggestionItems.length} filtered items (61 total)`);
+    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "GR-005" } });
+    expect(shown()[0]).toHaveAccessibleName(`Item ${filteredItems[0].position}: ${filteredItems[0].id}`);
+    expect(screen.getByRole("status")).toHaveTextContent(`Showing 1-${Math.min(25, filteredItems.length)} of ${filteredItems.length} filtered items (61 total)`);
+    expect(window.location.search).toContain("page=1");
+    expect(window.location.search).toContain("suggestion=different_people");
+    expect(window.location.search).toContain("rule=GR-005");
+  });
+
+  it("clamps a page past the end, keeps the pager wrappable on phones, and names page links", async () => {
+    const run = await loadDemoRun();
+    const source = reviewItems(run);
+    const items = Array.from({ length: 151 }, (_, i) => ({ ...source[i % source.length], id: `item-${i + 1}`, position: i + 1 }));
+    render(<ReviewQueue items={items} initialPage={99} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 151-151 of 151 items");
+    const pager = screen.getByRole("navigation", { name: "Review queue pages" });
+    expect(pager.className).toContain("flex-wrap");
+    expect(within(pager).getByText("7")).toHaveAttribute("aria-current", "page");
+    expect(within(pager).getByRole("link", { name: "Page 6" })).toHaveTextContent(/^6$/);
+    expect(pager.querySelector("[aria-disabled]")).toBeNull();
+  });
+
+  it("says plainly when the chosen filters match nothing", async () => {
+    const { items } = await show();
+    const suggestions = [...new Set(items.map((i) => i.suggestion))];
+    const rules = [...new Set(items.flatMap((i) => i.rules.map((r) => r.id)))];
+    const empty = suggestions.flatMap((s) => rules.map((r) => [s, r])).find(([s, r]) => applyFilters(items, s, r).length === 0);
+    expect(empty).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Suggestion"), { target: { value: empty![0] } });
+    fireEvent.change(screen.getByLabelText("Rule"), { target: { value: empty![1] } });
+    expect(screen.queryAllByRole("listitem", { name: /^Item / })).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent(`No items match these filters (${items.length} total)`);
   });
 
   it("explains the decisions file and the apply command, and writes nothing", async () => {
