@@ -22,19 +22,21 @@ A human decision file can then be applied with `bob-resolve review apply` (see d
 
 ## Demo scorecard (measured on synthetic data)
 
-The demo uses the enrollment side derived from the answer key, with shared ids (MBI) withheld
-from matching. Synthetic data, as of 2026-10-01.
+The demo uses the enrollment side derived from the answer key, with shared ids (MBI) used for
+matching. The MBI is masked to its last 4 characters in the published people.csv. Synthetic data,
+run `demo-run` as of 2026-10-01, read from the committed dashboard/public/demo-run/scorecard.json
+at commit b15baf0 (a fresh `npm run demo` on that commit gives identical files).
 
 | Measure | Value |
 |---|---|
 | Records in | 3,887 |
-| People | 2,025 (25 left split, waiting in the review queue) |
-| Households | 1,425 |
-| Auto-merges | 2,139 |
+| People | 2,000 (0 left split) |
+| Households | 1,400 |
+| Auto-merges | 2,159 |
 | Auto-merge precision | 1.0000 (target 0.99) |
 | Blocking recall | 1.0000 (target 0.98) |
-| Recall after review | 1.0000 (target 0.90) |
-| Review queue | 89 (0 high, 89 medium) |
+| Recall after review | 0.9963 (target 0.90); no review decisions applied yet, so this is automatic recall |
+| Review queue | 19 (0 high, 19 medium) |
 
 These numbers come from synthetic data the project generated itself. They say nothing yet about
 real agency files.
@@ -54,14 +56,19 @@ uv run bob-resolve run --world multi-a-b --no-shared-ids --out ../runs --run-id 
 
 | Shared ids | Auto-merge precision | Automatic recall (all pairs) | Automatic recall (320 cross-agency client pairs) | If every suggestion were confirmed (320 pairs, hypothetical) | Look-alike pairs merged (of 164) | Awaiting review |
 |---|---|---|---|---|---|---|
-| on | 1.0000 | 0.9591 | 0.9625 | 0.9938 | 0 | 447 |
-| off | 1.0000 | 0.0600 | 0.8063 | 0.9250 | 0 | 4,962 |
+| on | 1.0000 | 0.9471 | 0.7875 | 0.8125 | 0 | 507 |
+| off | 1.0000 | 0.0085 | 0.0063 (2 of 320) | 0.1250 | 0 | 5,218 |
 
 Automatic figures count only merges the engine made on its own. The hypothetical column counts pairs
-the engine only suggested as the same person; no person has confirmed them. Without shared ids the
-engine merges almost nothing on its own across all pairs (0.06) and sends nearly every pair to review,
-though it still merges 81% of the 320 cross-agency client pairs. Measured 2026-10-06 at
-PR 18. History: docs/pr-10-notes.md and docs/pr-10b-notes.md.
+the engine only suggested as the same person; no person has confirmed them. The rest are not lost:
+every one of the 320 client pairs is either merged or waiting in review. With shared ids, the other 60
+wait marked unsure (56 of them for GR-008 alone); without shared ids, 280 do. A reviewer can still
+confirm them. Without shared ids the engine merges almost nothing on its own (0.0085 across all
+pairs, 2 of the 320 cross-agency client pairs) and sends nearly every pair to review. These figures are lower than before the identity
+safety fixes (PRs 21a to 21c): since GR-008, people whose only extra shared detail is a street wait
+for a person instead of merging, which lowers automatic recall and keeps wrong merges at 0.
+Measured 2026-10-06 at commit b15baf0 (after PR 21c). History: docs/pr-10-notes.md and
+docs/pr-10b-notes.md.
 
 ## Known limits
 
