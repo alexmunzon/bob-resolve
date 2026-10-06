@@ -47,7 +47,7 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - The repo path contains a space ("Data intake"). Quote every absolute path in shell commands and scripts.
 
 ## Workflow
-- One PR per session per worktree. Branch names pr-NN-short-name. Under 400 changed lines.
+- One worktree per PR. Branch names pr-NN-short-name. No PR size limit; related changes may share one PR (Alex, 2026-10-06).
 - Tests first from SPEC examples, then implementation, then `npm run verify`, then show the output.
 - Add one changelog fragment per PR in changelog.d/ (see changelog.d/README.md). Do not edit CHANGELOG.md directly.
 - Never push, open a PR, merge, create a GitHub repo, or link Vercel without Alex's explicit go-ahead.
