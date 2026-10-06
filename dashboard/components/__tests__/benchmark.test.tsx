@@ -8,6 +8,19 @@ import { benchmarkFixture } from "@/lib/__tests__/benchmark-fixture";
 const value = (name: string) => screen.getByRole("row", { name: new RegExp(`^${name}`) }).querySelector("td")?.textContent;
 
 describe("Benchmark", () => {
+  it("makes the shared-identifier contribution explicit", () => {
+    render(<Benchmark report={parseBenchmark(JSON.stringify(benchmarkFixture()))} />);
+    expect(screen.getByText(/MBI and linking policy IDs were available to the matcher/)).toBeInTheDocument();
+  });
+
+  it("labels withheld shared identifiers without implying they contributed", () => {
+    const report = benchmarkFixture();
+    report.runs[0].shared_ids = false;
+    render(<Benchmark report={parseBenchmark(JSON.stringify(report))} />);
+    expect(screen.getByText(/MBI and linking policy IDs were withheld from matching/)).toBeInTheDocument();
+    expect(screen.queryByText(/were available to the matcher/)).toBeNull();
+  });
+
   it("leads with automatic figures and labels the suggestion figure as hypothetical", () => {
     const { container } = render(<Benchmark report={parseBenchmark(JSON.stringify(benchmarkFixture()))} />);
     expect(value("Automatic precision")).toBe("100.0%");

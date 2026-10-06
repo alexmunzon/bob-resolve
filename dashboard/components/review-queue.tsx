@@ -44,6 +44,11 @@ function Item({ item }: { item: ReviewItemView }) {
         <span className={cn("tabular-nums", MUTED)}>Score {item.score}, {item.nearer}</span>
         <code className={cn("text-xs", MUTED)}>{item.id}</code>
       </div>
+      {item.alreadyOnePerson && (
+        <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+          Already joined through other accepted links. This direct pair is still awaiting review.
+        </p>
+      )}
       <ul className="mt-2 space-y-1 text-sm">
         {item.rules.map((r) => (
           <li key={r.id}><strong>{r.id} {r.name}:</strong> {r.text}</li>

@@ -19,6 +19,20 @@ async function show() {
 const shown = () => within(screen.getByRole("region", { name: "Queue" })).getAllByRole("listitem", { name: /^Item / });
 
 describe("Review queue", () => {
+  it("discloses when a queued direct pair already shares a cluster through other links", async () => {
+    const { items } = await show();
+    for (const item of items) {
+      const card = screen.getByRole("listitem", { name: `Item ${item.position}: ${item.id}` });
+      const note = within(card).queryByText(/Already joined through other accepted links/);
+      if (item.alreadyOnePerson) {
+        expect(note).toHaveTextContent("This direct pair is still awaiting review");
+      } else {
+        expect(note).toBeNull();
+      }
+    }
+    expect(items[0].alreadyOnePerson).toBe(true);
+  });
+
   it("keeps the engine's stable order: severity, then distance from the cutoff", async () => {
     const { run, items } = await show();
     expect(items.map((i) => i.id)).toEqual(run.queue.map((q) => q.item_id));

@@ -6,11 +6,17 @@ Recorded live on the public link https://bob-resolve-nine.vercel.app at main `56
 | Step | Page | What it shows | Screenshot |
 |---|---|---|---|
 | 1. Strong match | `/clusters/crm-C-00083` | "Bob Murphy" (CRM) and "Robert Murphy" (enrollment): same birth date 1940-10-11, same MBI last 4 (ET97). Merged automatically, score 0.9999, rule AUTO-MATCH-HIGH. "Bob" kept as an alias. Every golden field names its source file and row and why it was chosen. | `1-strong-match-robert-murphy.jpg` |
-| 2. Weak name plus birth date (GR-007) | `/review?rule=GR-007` | Kevin Khan, enrollment rows 209 and 210: name and birth date agree, everything else missing. Score 0.998 is above the auto-match line (0.99), yet the engine did not merge: suggestion "Unsure", a person decides. 8 such items. | `2-weak-gr007-kevin-khan.jpg` |
+| 2. Weak name plus birth date (GR-007) | `/review?rule=GR-007` | Kevin Khan, enrollment rows 209 and 210: name and birth date agree, everything else missing. Score 0.998 is above the auto-match line (0.99), yet the engine did not accept this direct pair: suggestion "Unsure", a person decides. 8 such items. | `2-weak-gr007-kevin-khan.jpg` |
 | 3. Conflicting pair (GR-005) | `/review?rule=GR-005` | Gabrielle Smith and Carlos Smith: same last name and birth date, but first name, street, state, ZIP and phone disagree. Suggestion "Different people"; not merged. 9 such items. | `3-conflict-gr005-smith.jpg` |
 | 4. Honest benchmark | `/benchmark` | Automatic precision 100.0%, recall 99.6%, F1 99.8% (engine alone). Confirmed by a reviewer 0, awaiting review 19. Suggestion figure labeled "Hypothetical, not achieved". Says the data is not held out. | `4-benchmark.jpg`, `5-benchmark-375px.jpg` |
 
-Checks: no console errors on any page; at 375px phone width no page scrolls sideways.
+Clarification from the recruiting-demo audit: the GR-007 rule blocks automatic acceptance of the direct pair.
+All eight GR-007 items in this committed demo also carry `already_one_person: true`, because other accepted
+links have already placed their records in one cluster. The current review UI explicitly shows this state;
+the original screenshots above predate that notice. Pair-level review is not evidence that the whole cluster
+is still split.
+
+Checks at the original capture commit: no console errors on any page; at 375px phone width no page scrolls sideways.
 
 Limits, stated honestly:
 - The 100.0% precision is exact on this data (2,159 of 2,159 auto-merges correct), not rounded. It is measured on

@@ -7,18 +7,80 @@ is not sure about go to a human review queue instead of being merged.
 
 ## Status
 
-v0.1.0: engine complete on synthetic data, Jev and LLM arms not built yet, measured on synthetic
-data only. There is no dashboard page yet and no real client data has ever been used.
+v0.1.0: a working rules engine and read-only dashboard, measured on synthetic data only.
+Overview, Clusters, Review queue, and Benchmark render the committed demo run. No real client
+data has ever been used. Jev and the LLM arm are not built; no model is called.
+
+[Open Bob Resolve](https://bob-resolve-nine.vercel.app)
+
+## Agency Data Trust Series
+
+Separate demos, shared trust principles. Read them in this order:
+
+1. [Intake Kit](https://agency-intake-kit.vercel.app): inspect incoming agency files and their data-quality issues.
+2. [Bob Resolve](https://bob-resolve-nine.vercel.app): explain which records became one person and which need a human.
+3. [Plan Diff](https://plan-diff.vercel.app): inspect year-over-year plan changes and their evidence.
+
+These are independent demos with separately committed runs. This synthetic Bob demo reads a frozen intake-fixture
+snapshot with an enrollment side derived from its answer key, not Intake Kit's current `clean/` output.
+
+## Two-minute walkthrough
+
+1. [Strong match](https://bob-resolve-nine.vercel.app/clusters/crm-C-00083): Bob and Robert Murphy become one
+   person. Open the golden field sources and merge log; the nickname stays as an alias.
+2. [Weak match](https://bob-resolve-nine.vercel.app/review?rule=GR-007): Kevin Khan's name and birth date agree,
+   but no extra identifier agrees. This direct pair waits for a human despite its high score. Other accepted
+   links have already placed these records in one cluster; the queue now makes that distinction explicit.
+3. [Conflicting pair](https://bob-resolve-nine.vercel.app/review?rule=GR-005): incompatible first names keep
+   Gabrielle and Carlos Smith from merging. The suggestion is "Different people."
+4. [Benchmark](https://bob-resolve-nine.vercel.app/benchmark): compare automatic results with the separately
+   labeled hypothetical suggestion figure. No reviewer has confirmed a merge in this demo.
+
+The dashboard is read-only. Review decisions are applied through the CLI to a new immutable run.
+The [recorded walkthrough](docs/v1-walkthrough-2026-10-06/README.md) includes screenshots and the original
+capture commit; those images document that earlier build.
+
+**Important limit:** without shared identifiers, the seen two-agency regression set automatically merges
+only 2 of 320 cross-agency client pairs (0.63%). With shared identifiers it finds 78.75% automatically.
+These results do not establish accuracy on unseen data or real agency files. Full figures are below.
 
 ## Run it
 
+Prerequisites: Node 24, Python 3.12, and uv. No API key or paid service is needed.
+
 ```bash
+(cd engine && uv sync --frozen)
+(cd dashboard && npm ci)
 npm run verify        # every check: lint, types, tests, dashboard build
-npm run demo          # writes the demo run to dashboard/public/demo-run/
-cd engine && uv run bob-resolve run --enrollment snapshot --out ../runs --run-id first
+npm run demo          # regenerate the committed, MBI-masked synthetic demo
+(cd dashboard && npm run dev)  # open http://localhost:3000
 ```
 
-A human decision file can then be applied with `bob-resolve review apply` (see docs/pr-7-notes.md).
+To generate a separate run and apply a human decision file:
+
+```bash
+cd engine
+uv run bob-resolve run --enrollment snapshot --out ../runs --run-id first
+uv run bob-resolve review apply --run ../runs/first --decisions decisions.jsonl --out ../runs --run-id reviewed
+```
+
+Use the Review queue's "How to decide" panel for the JSONL format and copy each chosen item's own
+line. The old run is never edited. Local run output is not published by these commands.
+
+## Data and provenance
+
+- Synthetic data only, no real people or contacts, and no SSN. Source records remain linked to
+  file, row, and raw hash; every golden field names its winning source and deciding rule.
+- The CRM fixture is pinned to Intake Kit commit `9064b4e`; [snapshot provenance](fixtures/agency-a-snapshot/SOURCE.md)
+  records the hashes. The [derived enrollment provenance](fixtures/agency-a-derived/SOURCE.md) explains
+  precisely which answer-key values were restored and which defects cannot be measured here.
+- The published run uses MBI for matching first, then masks it to the last four characters in
+  displayed and downloadable records. Masking is not a no-shared-ids evaluation. That separate mode
+  withholds MBI and linking policy IDs from blocking and scoring.
+- [The demo manifest](dashboard/public/demo-run/manifest.json) records source and output hashes,
+  cutoffs, versions, zero model calls, and zero model cost. The fixed clock makes reruns byte-identical.
+- Review labels are stored, not learned from. Conflicting authoritative identity fields go to review;
+  a high score never overrides a guard rail.
 
 ## Demo scorecard (measured on synthetic data)
 
@@ -35,7 +97,9 @@ at commit b15baf0 (a fresh `npm run demo` on that commit gives identical files).
 | Auto-merges | 2,159 |
 | Auto-merge precision | 1.0000 (target 0.99) |
 | Blocking recall | 1.0000 (target 0.98) |
-| Recall after review | 0.9963 (target 0.90); no review decisions applied yet, so this is automatic recall |
+| Automatic recall | 0.9963 (2,159 of 2,167 true pairs) |
+| If every same-person suggestion were confirmed | 0.9963, hypothetical; no same-person suggestions in this run |
+| Reviewer-confirmed merges | 0 |
 | Review queue | 19 (0 high, 19 medium) |
 
 These numbers come from synthetic data the project generated itself. They say nothing yet about
@@ -77,7 +141,10 @@ docs/pr-10b-notes.md.
 - Measured on synthetic data only. The hard cases score recall 0.89 with shared ids on: Nina
   Dorsey's two records stay split until a human decides.
 - With shared ids withheld, the shared-MBI conflict check (GR-002) cannot fire.
-- The dashboard does not show the demo run yet.
+- The Changes page, direct use of Intake Kit's current `clean/` output, held-out evaluation,
+  Jev/LLM comparison, and model cost/latency benchmarking remain outside this rules-only demo.
+- The published dashboard is a fixed run, not an upload service or an editable production workflow.
 - People.csv is about 1.8 MB because each field carries six provenance columns.
-- The demo's queue has no high items: every "same person" suggestion joins a client to that
-  client's own policy, so no money would move. A richer rule needs premium data the fixtures lack.
+- The demo's 19 review items are all medium severity, with no same-person suggestions. High-severity
+  identity conflicts are covered by the hard-case fixtures and tests, not by this published queue.
+  A richer financial-impact rule needs premium data the fixtures lack.
