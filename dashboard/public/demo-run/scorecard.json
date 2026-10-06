@@ -9,7 +9,8 @@
     "GR-004": 0,
     "GR-005": 1280,
     "GR-006": 0,
-    "GR-007": 8
+    "GR-007": 8,
+    "GR-008": 0
   },
   "households": 1400,
   "label": "measured on synthetic data",
