@@ -5,13 +5,23 @@ which records belong to the same real person. It builds one golden record per pe
 source file and row of every field, groups people into households, and logs every merge. Pairs it
 is not sure about go to a human review queue instead of being merged.
 
+**[Live demo](https://bob-resolve-nine.vercel.app)** · [Walkthrough](#two-minute-walkthrough) ·
+[Architecture](#architecture) · [Local setup](#run-it) · [Documentation](docs/README.md) ·
+[Contributing](CONTRIBUTING.md) · [Security and boundaries](SECURITY.md)
+
+Built to make identity decisions inspectable: rules and guard rails, field-level provenance,
+immutable review runs, and a dashboard that explains the evidence. This is a portfolio demonstration,
+not a service for processing real insurance records.
+
 ## Status
 
 v0.1.0: a working rules engine and read-only dashboard, measured on synthetic data only.
 Overview, Clusters, Review queue, and Benchmark render the committed demo run. No real client
 data has ever been used. Jev and the LLM arm are not built; no model is called.
 
-[Open Bob Resolve](https://bob-resolve-nine.vercel.app)
+Start with the walkthrough below. [SPEC.md](SPEC.md) defines the intended behavior; the
+[documentation index](docs/README.md) separates current guides from historical implementation notes
+and validation evidence.
 
 ## Agency Data Trust Series
 
@@ -47,14 +57,20 @@ These results do not establish accuracy on unseen data or real agency files. Ful
 ## Run it
 
 Prerequisites: Node 24, Python 3.12, and uv. No API key or paid service is needed.
+Run these commands from the repository root. Dependencies are locked separately in
+`engine/uv.lock` and `dashboard/package-lock.json`; the root package has scripts only.
 
 ```bash
-(cd engine && uv sync --frozen)
+(cd engine && uv sync --locked)
 (cd dashboard && npm ci)
 npm run verify        # every check: lint, types, tests, dashboard build
-npm run demo          # regenerate the committed, MBI-masked synthetic demo
 (cd dashboard && npm run dev)  # open http://localhost:3000
 ```
+
+The committed demo is ready to view without regenerating data. To reproduce it deliberately,
+`npm run demo` overwrites only `dashboard/public/demo-run/` with the fixed-clock, MBI-masked
+synthetic run; do not use it for private files. If your home cache is read-only, use
+`UV_CACHE_DIR=/tmp/bob-resolve-uv` for uv commands and `npm ci --cache /tmp/bob-resolve-npm`.
 
 To generate a separate run and apply a human decision file:
 
@@ -66,6 +82,26 @@ uv run bob-resolve review apply --run ../runs/first --decisions decisions.jsonl 
 
 Use the Review queue's "How to decide" panel for the JSONL format and copy each chosen item's own
 line. The old run is never edited. Local run output is not published by these commands.
+
+## Architecture
+
+1. **Load and normalize:** the Python engine reads pinned synthetic CRM, policy, and enrollment
+   fixtures and retains source file, row, and raw hashes.
+2. **Block and score:** candidate generation narrows the comparisons; deterministic rules score
+   direct pairs. Guard rails and authoritative identity conflicts can prevent an automatic merge
+   even when the score is high.
+3. **Resolve and explain:** accepted links form clusters, then golden records and households.
+   Outputs include field provenance, an append-only merge log, a review queue, a scorecard, and a
+   manifest. A queued direct pair may already share a cluster through other accepted links.
+4. **Review as a new run:** the CLI applies an explicit decision file and writes a separate run,
+   carrying prior decisions and appending to the log. The dashboard does not submit decisions.
+5. **Present committed evidence:** the Next.js dashboard reads the public demo artifacts. The
+   published site has no client-file upload or editable review workflow. Jev and the LLM arm are
+   not implemented; this run calls no model.
+
+Repository map: `engine/` contains matching and CLI code; `dashboard/` contains the read-only
+presentation; `fixtures/` contains synthetic inputs and provenance; `runs/` holds ignored local
+outputs; `docs/` holds guides and dated evidence. [SPEC.md](SPEC.md) is the behavioral reference.
 
 ## Data and provenance
 
@@ -81,6 +117,9 @@ line. The old run is never edited. Local run output is not published by these co
   cutoffs, versions, zero model calls, and zero model cost. The fixed clock makes reruns byte-identical.
 - Review labels are stored, not learned from. Conflicting authoritative identity fields go to review;
   a high score never overrides a guard rail.
+- Hashes support reproducibility and change detection, not proof that an input is safe or true.
+  [Security review](docs/security-review-2026-10-06.md) records a bounded dependency/source check,
+  including the known unpatched development-tool advisory and areas it did not cover.
 
 ## Demo scorecard (measured on synthetic data)
 
