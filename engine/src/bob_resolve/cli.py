@@ -147,7 +147,7 @@ def run_command(
         typer.Option(help="Agency A world: snapshot, derived (from the answer key), or hard-cases"),
     ] = None,
     world: Annotated[
-        World, typer.Option(help="agency-a (pick --enrollment) or multi-a-b (held-out, commons)")
+        World, typer.Option(help="agency-a (pick --enrollment) or multi-a-b (seen, commons)")
     ] = "agency-a",
     shared_ids: Annotated[
         bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")

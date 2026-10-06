@@ -38,7 +38,7 @@ from bob_resolve.config import (
 from bob_resolve.golden import GOLDEN_FIELDS, Resolution, resolve
 from bob_resolve.golden.data import load_people
 from bob_resolve.load import PersonRecord, read_enrollment
-from bob_resolve.load.commons import HELD_OUT_LABEL, ensure_multi_a_b
+from bob_resolve.load.commons import TWO_AGENCY_LABEL, ensure_multi_a_b
 from bob_resolve.mergelog import append_entries
 from bob_resolve.normalize.record import normalize_record
 from bob_resolve.queue import (
@@ -60,7 +60,7 @@ SIDE_LABEL = {
     "snapshot": "snapshot",
     "derived": "derived from the answer key",
     "hard-cases": "hand-written hard cases",
-    "multi-a-b": HELD_OUT_LABEL,
+    "multi-a-b": TWO_AGENCY_LABEL,
 }
 
 
@@ -286,7 +286,7 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
 def held_out_report(
     t: MultiTruth, res: Resolution, scored: list[ScoredPair], missed: tuple[tuple[str, str], ...]
 ) -> dict[str, Any]:
-    """PR 10 additions for the held-out world, with PR 18's honest recall names.
+    """PR 10 additions for the seen two-agency world, with PR 18's honest recall names.
 
     Each commons pair block counts the same way as the main scorecard's resolution block:
     "found_automatically" pairs were merged by the engine on its own (an auto-match kept after
@@ -335,7 +335,7 @@ def held_out_report(
             row["merged_examples"] = sorted([*row["merged_examples"], [m.a, m.b]])[:3]
         row["suggested_same_person"] += tuple(sorted((m.a, m.b))) in gray_same
     return {
-        "label": HELD_OUT_LABEL,
+        "label": TWO_AGENCY_LABEL,
         "commons_pairs": recall(sorted(t.commons_pairs)),
         "recall_by_injector": {d: recall(sorted(ps)) for d, ps in sorted(by_type.items())},
         "must_not_merge": dict(sorted(mnm.items())),
@@ -435,6 +435,7 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     lap("scorecard")
     c["scorecard"] = scorecard(o, key, c)
     if multi is not None:
+        # Historical key name: this two-agency world is seen, not held out (PR 19).
         c["scorecard"]["held_out"] = held_out_report(multi, res, scored, c["scores"].missed)
     c["timings"] = None if o.frozen_clock else timings
     return c

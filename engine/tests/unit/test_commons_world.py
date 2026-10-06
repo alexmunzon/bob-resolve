@@ -9,7 +9,7 @@ from typing import Any
 import synth_agency_data
 
 from bob_resolve.golden import GoldenPerson, Resolution
-from bob_resolve.load.commons import EXPECTED_SHA256, HELD_OUT_LABEL, ensure_multi_a_b
+from bob_resolve.load.commons import EXPECTED_SHA256, TWO_AGENCY_LABEL, ensure_multi_a_b
 from bob_resolve.mergelog import MergeLogEntry
 from bob_resolve.run import held_out_report, input_files, load_world
 from bob_resolve.run import sha256 as file_sha256
@@ -29,7 +29,9 @@ def test_commons_pin_resolves_and_imports() -> None:
     lock = (ENGINE / "uv.lock").read_text()
     assert "agency-data-commons?rev=v0.2.0#a9a670fbd9ebced6f2201177d20716fb9944a4c0" in lock
     assert synth_agency_data.__version__ == "0.2.0"
-    assert "agency-data-commons v0.2.0" in HELD_OUT_LABEL and "never used to tune" in HELD_OUT_LABEL
+    assert "agency-data-commons v0.2.0" in TWO_AGENCY_LABEL and TWO_AGENCY_LABEL.startswith("seen")
+    assert "never used to tune" not in TWO_AGENCY_LABEL and "held-out" not in TWO_AGENCY_LABEL
+    assert "tuned on it" in TWO_AGENCY_LABEL
 
 
 def test_generated_world_matches_commons_committed_hashes() -> None:

@@ -1,5 +1,8 @@
 # PR 10 notes: the frozen matcher on the held-out two-agency world
 
+Superseded (2026-10-06): PR 10b then tuned the matcher on this world, so it is now seen, not held out.
+The notes below describe it as it was when PR 10 measured it.
+
 Branch `pr-10-commons`. Code: `engine/src/bob_resolve/load/commons.py` (pin, generation, hashes),
 `truth/multi.py` (answer key), `run/__init__.py` (two-agency loading, `held_out` scorecard
 block), `cli.py` (`--world`). Tests: `tests/unit/test_commons_world.py`,
