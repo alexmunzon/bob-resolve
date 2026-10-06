@@ -167,6 +167,15 @@ INDEPENDENT_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
     "street": frozenset({"same"}),
     "policy": frozenset({"same"}),
 }
+# PR 21b (GR-008): a street is household context. A home or care facility is shared by many
+# people, so street stays independent evidence (GR-006, GR-007) but is not person evidence:
+# name and DOB plus a shared street and no person evidence never auto-matches.
+HOUSEHOLD_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset({"street"})
+PERSON_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
+    f: levels
+    for f, levels in INDEPENDENT_EVIDENCE_LEVELS.items()
+    if f not in HOUSEHOLD_CONTEXT_FIELDS
+}
 # PR 10b (GR-004, orchestrator): a holder tied to a pair record by one of these exact fields is
 # that person's own record, so its conflicts with the pair's other own records are not ambiguity
 # (a person who moved). MBI ties only when shared ids are on.

@@ -9,6 +9,7 @@ export const RULES: Record<string, { name: string; text: string }> = {
   "GR-005": { name: "First names do not match", text: "The first names do not match: they are not nicknames of each other and not a simple typo (for example Patrick and Patricia, or Andrew and Andrea, which differ only at the end)." },
   "GR-006": { name: "Birth year changed by a digit swap", text: "Two swapped digits move the birth year by more than one, and no MBI, phone, email, or street agrees to back it up." },
   "GR-007": { name: "Name and birth date only", text: "Name and birth date are the only evidence. Nothing else agrees (no MBI, phone, email, street, or linking policy), so a person decides." },
+  "GR-008": { name: "Name, birth date, and shared street only", text: "Name and birth date plus a shared street are the only evidence. A household or care facility address is shared by many people, so it is not proof of one person. A person decides." },
   CLUSTER_CONFLICT: { name: "Group split", text: "Automatic matches chained together records that conflict, so every link between them is held for a person to review. None was kept automatically." },
   IDENTITY_CONFLICT: { name: "Trusted sources disagree", text: "Two trusted records disagree on birth date or MBI. The engine never guesses; a person decides." },
   "SCORE-GRAY": { name: "Score in the gray zone", text: "No guard rail fired. The match score sits between the auto-reject and auto-match lines." },

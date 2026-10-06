@@ -101,7 +101,9 @@ moved households, shared household phones and emails, a child on a parent's poli
    needs MBI, phone, email, street, or a linking policy to agree; GR-007 (Alex, 2026-10-05, replaced in PR 10b) name
    plus DOB as the only agreeing evidence never auto-merges: a pair needs one more agreeing fact, MBI (shared ids on),
    phone, email, street, or a linking policy (the same policy id or carrier member id; a shared id, so withheld in no
-   shared ids mode), else gray with "unsure". Gray pairs from these rails carry the rule id and a suggestion of
+   shared ids mode), else gray with "unsure"; GR-008 (PR 21b) name plus DOB plus a shared street as the only
+   agreeing evidence never auto-merges, since a household or care facility street is shared by many people: gray
+   with "unsure". Gray pairs from these rails carry the rule id and a suggestion of
    "different people" or "unsure".
 4. **Jev gate on the gray zone** (after commons exists): `noul` "Is record B the same person as record A?" and `choice`
    household role (self, spouse, dependent, unrelated). Payload minimized to the compared fields only, no notes.

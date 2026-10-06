@@ -96,7 +96,7 @@ describe("Review queue", () => {
   });
 
   it("explains every rule id the engine can write", () => {
-    for (const id of ["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007", "CLUSTER_CONFLICT", "IDENTITY_CONFLICT"]) {
+    for (const id of ["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007", "GR-008", "CLUSTER_CONFLICT", "IDENTITY_CONFLICT"]) {
       expect(RULES[id].text.length).toBeGreaterThan(20);
     }
   });
