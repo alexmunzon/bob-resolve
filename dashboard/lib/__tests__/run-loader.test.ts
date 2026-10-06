@@ -55,6 +55,23 @@ describe("parseRun", () => {
     expect(() => parseRun({ ...files, scorecard: JSON.stringify({ ...card, people: 1 }) })).toThrow(/scorecard says 1/);
   });
 
+  it("accepts a scorecard without resolution counts and refuses bad ones", async () => {
+    const files = await demoFiles();
+    const card = JSON.parse(files.scorecard);
+    expect(parseRun(files).scorecard.resolution).toMatchObject({ true_pairs: 2167, found_automatically: 2159 });
+    const { resolution, ...older } = card;
+    expect(parseRun({ ...files, scorecard: JSON.stringify(older) }).scorecard.resolution).toBeUndefined();
+    for (const bad of [{ true_pairs: "2167" }, { awaiting_review: -1 }, { found_automatically: 1.5 }, { human_confirmed_merges: null }]) {
+      const scorecard = JSON.stringify({ ...card, resolution: { ...resolution, ...bad } });
+      expect(() => parseRun({ ...files, scorecard })).toThrow(/scorecard\.json resolution: .* must be a whole number, 0 or more/);
+    }
+    const tooMany = JSON.stringify({ ...card, resolution: { ...resolution, found_automatically: 9999 } });
+    expect(() => parseRun({ ...files, scorecard: tooMany })).toThrow(/more pairs found than true pairs/);
+    const overSuggested = JSON.stringify({ ...card, resolution: { ...resolution, suggested_same_person: resolution.true_pairs - resolution.found_automatically + 1 } });
+    expect(() => parseRun({ ...files, scorecard: overSuggested })).toThrow(/found plus suggested pairs exceed true pairs/);
+    expect(() => parseRun({ ...files, scorecard: JSON.stringify({ ...card, resolution: [] }) })).toThrow(/resolution: expected an object/);
+  });
+
   it("refuses an unknown severity and broken JSON, naming the line", async () => {
     const files = await demoFiles();
     const queue = files.queue.replace('"severity":"medium"', '"severity":"urgent"');

@@ -34,15 +34,59 @@ describe("Overview", () => {
 
   it("labels every accuracy number as synthetic, with the side and the shared-ids mode", async () => {
     await show();
-    for (const [name, value] of [["Precision of auto-merges", "100.0%"], ["Recall after review", "99.6%"], ["Blocking recall", "100.0%"]]) {
+    for (const [name, value] of [["Precision of auto-merges", "100.0%"], ["Automatic recall", "99.6%"], ["Blocking recall", "100.0%"]]) {
       const group = tile(name);
       expect(group.getByText(value)).toBeInTheDocument();
-      expect(group.getByText("Meets target")).toBeInTheDocument();
       expect(
         group.getByText(/Enrollment side derived from the answer key, shared ids on\. Measured on synthetic data\./),
       ).toBeInTheDocument();
     }
+    expect(tile("Precision of auto-merges").getByText("Meets target")).toBeInTheDocument();
+    expect(tile("Blocking recall").getByText("Meets target")).toBeInTheDocument();
     expect(tile("Precision of auto-merges").getByText(/Target at least 99\.0%/)).toBeInTheDocument();
+  });
+
+  it("shows automatic recall from the resolution counts, with no target badge", async () => {
+    await show();
+    const auto = tile("Automatic recall");
+    expect(auto.getByText(/2,159 of 2,167 true pairs merged with no reviewer/)).toBeInTheDocument();
+    expect(auto.queryByText(/target/i)).toBeNull();
+    const maybe = tile("Recall if every same-person suggestion were confirmed");
+    expect(maybe.getByText("99.6%")).toBeInTheDocument();
+    expect(maybe.getByText(/^Hypothetical\. Counts a same-person suggestion as found even with no reviewer\. Enrollment side/)).toBeInTheDocument();
+    expect(maybe.queryByText(/target/i)).toBeNull();
+  });
+
+  it("counts reviewer-confirmed merges and links the items awaiting review", async () => {
+    await show();
+    const status = panel(/Review status/);
+    expect(status.getByText("Confirmed by a reviewer").nextSibling).toHaveTextContent("0");
+    expect(status.getByRole("link", { name: "Awaiting review" })).toHaveAttribute("href", "/review");
+    expect(status.getByText("19")).toBeInTheDocument();
+  });
+
+  it("never says after review", async () => {
+    expect((await show()).textContent).not.toMatch(/after review/i);
+  });
+
+  it("shows Not recorded, never the suggestion figure, when an older run has no resolution counts", async () => {
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    delete run.scorecard.resolution;
+    render(<Overview data={overview(run)} />);
+    expect(tile("Automatic recall").getByText("Not recorded")).toBeInTheDocument();
+    expect(tile("Automatic recall").queryByText("99.6%")).toBeNull();
+    const status = panel(/Review status/);
+    expect(status.getAllByText("Not recorded")).toHaveLength(2);
+  });
+
+  it("says there were no true pairs, not that counts are missing, when true_pairs is 0", async () => {
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    run.scorecard.resolution = { ...run.scorecard.resolution!, true_pairs: 0, found_automatically: 0, suggested_same_person: 0 };
+    render(<Overview data={overview(run)} />);
+    const auto = tile("Automatic recall");
+    expect(auto.getByText("Not recorded")).toBeInTheDocument();
+    expect(auto.getByText(/^No true pairs in this run\./)).toBeInTheDocument();
+    expect(auto.queryByText(/did not record resolution counts/)).toBeNull();
   });
 
   it("shows merges by tier, with Jev, LLM, and human review off or zero and why", async () => {
