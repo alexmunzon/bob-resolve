@@ -31,8 +31,8 @@ export function HouseholdGraph({ household }: { household: ClusterView["househol
           const p = at(i);
           return (
             <g key={n.id}>
-              <line x1={me.x} y1={me.y} x2={p.x} y2={p.y} className="stroke-slate-400" strokeWidth={1.5} />
-              <text x={me.x + 0.6 * (p.x - me.x)} y={me.y + 0.6 * (p.y - me.y) - 6} textAnchor="middle" className="fill-slate-600 text-[12px] dark:fill-slate-400">
+              <line x1={me.x} y1={me.y} x2={p.x} y2={p.y} className="stroke-[var(--muted)]" strokeWidth={1.5} />
+              <text x={me.x + 0.6 * (p.x - me.x)} y={me.y + 0.6 * (p.y - me.y) - 6} textAnchor="middle" className="fill-[var(--muted)] text-[12px]">
                 {LINK}
               </text>
             </g>
@@ -40,7 +40,7 @@ export function HouseholdGraph({ household }: { household: ClusterView["househol
         })}
         {[{ ...nodes[center], ...me }, ...others.map((n, i) => ({ ...n, ...at(i) }))].map((n) => (
           <g key={n.id}>
-            <circle cx={n.x} cy={n.y} r={10} className={n.current ? "fill-indigo-600" : "fill-slate-400"} />
+            <circle cx={n.x} cy={n.y} r={10} className={n.current ? "fill-[var(--accent)]" : "fill-[var(--muted)]"} />
             <text x={n.current ? n.x : n.x + 16} y={n.current ? n.y + 26 : n.y + 4} textAnchor={n.current ? "middle" : "start"} className="fill-current text-[13px]">
               {n.label}
             </text>
@@ -52,7 +52,7 @@ export function HouseholdGraph({ household }: { household: ClusterView["househol
         <ul className="mt-1 list-disc pl-5 text-sm">
           {nodes.map((n) => (
             <li key={n.id}>
-              {n.href ? <Link className="text-indigo-700 underline dark:text-indigo-300" href={n.href}>{n.label}</Link> : n.label}
+              {n.href ? <Link className="text-link" href={n.href}>{n.label}</Link> : n.label}
               {n.current ? " (this person)" : `: ${LINK}`}
             </li>
           ))}

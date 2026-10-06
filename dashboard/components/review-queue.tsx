@@ -8,9 +8,9 @@ import { CARD } from "@/components/tiles";
 import { applyFilters, filterOptions, type ReviewItemView, type Status } from "@/lib/review";
 import { cn } from "@/lib/utils";
 
-const MUTED = "text-slate-600 dark:text-slate-400";
-const TH = "px-2 py-1.5 text-left font-medium whitespace-nowrap";
-const TD = "px-2 py-1.5 align-top";
+const MUTED = "muted";
+const TH = "text-left whitespace-nowrap";
+const TD = "align-top";
 const PAGE_SIZE = 25;
 
 // Color is never the only signal: every status has an icon and a word.
@@ -36,26 +36,30 @@ function StatusCell({ status, note }: { status?: Status; note?: string }) {
 
 function Item({ item }: { item: ReviewItemView }) {
   return (
-    <li aria-label={`Item ${item.position}: ${item.id}`} className={cn(CARD, "p-4")}>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-semibold tabular-nums">#{item.position}</span>
-        <SeverityBadge tone={item.severity === "high" ? "error" : "warning"} label={item.severity === "high" ? "High" : "Medium"} />
-        <span>Suggestion: <strong>{item.suggestionLabel}</strong></span>
-        <span className={cn("tabular-nums", MUTED)}>Score {item.score}, {item.nearer}</span>
-        <code className={cn("text-xs", MUTED)}>{item.id}</code>
+    <li aria-label={`Item ${item.position}: ${item.id}`} className={cn(CARD, "review-item")}>
+      <div className="review-item-header">
+        <div className="review-item-decision">
+          <span className="item-position">#{item.position}</span>
+          <SeverityBadge tone={item.severity === "high" ? "error" : "warning"} label={item.severity === "high" ? "High" : "Medium"} />
+          <span>Suggestion: <strong>{item.suggestionLabel}</strong></span>
+        </div>
+        <div>
+          <p className="review-score">Score {item.score}, {item.nearer}</p>
+          <code className="item-id">{item.id}</code>
+        </div>
       </div>
       {item.alreadyOnePerson && (
-        <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+        <p className="already-joined">
           Already joined through other accepted links. This direct pair is still awaiting review.
         </p>
       )}
-      <ul className="mt-2 space-y-1 text-sm">
+      <ul className="review-rules space-y-1">
         {item.rules.map((r) => (
           <li key={r.id}><strong>{r.id} {r.name}:</strong> {r.text}</li>
         ))}
       </ul>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-scroll" role="region" aria-label={`Evidence for item ${item.position}`} tabIndex={0}>
+        <table className="data-table evidence-table">
           <thead>
             <tr>
               <th className={TH}><span className="sr-only">Field</span></th>
@@ -65,7 +69,7 @@ function Item({ item }: { item: ReviewItemView }) {
           </thead>
           <tbody>
             {item.rows.map((row) => (
-              <tr key={row.label} className="border-t border-slate-200 dark:border-slate-800">
+              <tr key={row.label}>
                 <th scope="row" className={cn(TH, MUTED)}>{row.label}</th>
                 {row.values.map((v, i) => <td key={i} className={TD}>{v}</td>)}
                 <StatusCell status={row.status} note={row.note} />
@@ -74,9 +78,9 @@ function Item({ item }: { item: ReviewItemView }) {
           </tbody>
         </table>
       </div>
-      <details className="mt-2 text-sm">
+      <details className="decision-line">
         <summary className="cursor-pointer">Decision line for this item</summary>
-        <pre className="mt-1 overflow-x-auto rounded bg-slate-100 p-2 text-xs dark:bg-slate-950">{item.decisionLine}</pre>
+        <pre tabIndex={0} className="code-sample mt-2">{item.decisionLine}</pre>
       </details>
     </li>
   );
@@ -87,10 +91,10 @@ function Select({ label, value, onChange, options }: {
 }) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="filter-field">
       <label htmlFor={id}>{label}</label>
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-slate-300 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
+        className="filter-select">
         <option value="">All</option>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -143,10 +147,10 @@ export function ReviewQueue({
 
   return (
     <section aria-label="Queue" className="space-y-3">
-      <div className="flex flex-wrap items-end gap-4">
+      <div className={cn(CARD, "queue-toolbar")}>
         <Select label="Suggestion" value={suggestion} onChange={(value) => updateFilter("suggestion", value)} options={options.suggestions} />
         <Select label="Rule" value={rule} onChange={(value) => updateFilter("rule", value)} options={options.rules} />
-        <p role="status" className={cn("text-sm tabular-nums", MUTED)}>
+        <p role="status" className="queue-count">
           {shown.length === 0
             ? suggestion || rule
               ? `No items match these filters (${items.length} total)`
@@ -159,7 +163,7 @@ export function ReviewQueue({
       <ol className="space-y-3">
         {pageItems.map((item) => <Item key={item.id} item={item} />)}
       </ol>
-      <nav aria-label="Review queue pages" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+      <nav aria-label="Review queue pages" className="queue-pager flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         {currentPage > 1
           ? <a className="underline underline-offset-2" href={pageHref(currentPage - 1)}>Previous page</a>
           : <span className={MUTED}>Previous page</span>}

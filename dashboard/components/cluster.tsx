@@ -1,4 +1,5 @@
 import { HouseholdGraph } from "@/components/household-graph";
+import { PageHeader } from "@/components/page-header";
 import { CARD } from "@/components/tiles";
 import type { ClusterView } from "@/lib/clusters";
 import { ruleName, sourceLabel, tierLabel } from "@/lib/explain";
@@ -6,9 +7,9 @@ import { fixed } from "@/lib/format";
 import type { Member } from "@/lib/run-loader";
 import { cn } from "@/lib/utils";
 
-const MUTED = "text-slate-600 dark:text-slate-400";
-const TH = "px-2 py-1.5 text-left font-medium whitespace-nowrap";
-const TD = "px-2 py-1.5 align-top";
+const MUTED = "muted";
+const TH = "text-left whitespace-nowrap";
+const TD = "align-top";
 
 const MEMBER_ROWS: [string, (m: Member) => string | null][] = [
   ["First name", (m) => m.first_name],
@@ -25,36 +26,37 @@ const MEMBER_ROWS: [string, (m: Member) => string | null][] = [
   ["Active policy", (m) => (m.active_policy ? "Yes" : "No")],
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, table = true }: { title: string; children: React.ReactNode; table?: boolean }) {
   return (
-    <section aria-label={title} className={cn(CARD, "p-4")}>
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="mt-2 overflow-x-auto">{children}</div>
+    <section aria-label={title} className={cn(CARD, "table-panel")}>
+      <h2 className="section-title">{title}</h2>
+      {table
+        ? <div className="table-scroll" role="region" aria-label={`${title} table`} tabIndex={0}>{children}</div>
+        : children}
     </section>
   );
 }
 
 export function Cluster({ view: v }: { view: ClusterView }) {
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold">Why did these records become one person?</h1>
-        <p className="mt-1 text-sm">
+    <div className="page-stack">
+      <PageHeader eyebrow="Bob Resolve / Record provenance" title="Why did these records become one person?">
+        <p className="page-description break-words">
           <strong>{v.name}</strong> is {v.recordIds.length} records: {v.recordIds.join(", ")}.
         </p>
-        <p className={cn("text-xs", MUTED)}>
+        <p className="provenance">
           Aliases: {v.aliases.length ? v.aliases.join(", ") : "none"}. Synthetic data only; no full MBI is shown.
         </p>
-      </header>
+      </PageHeader>
 
       <Section title="Golden record">
-        <table className="w-full text-sm">
+        <table className="data-table provenance-table">
           <thead className={MUTED}>
             <tr><th className={TH}>Field</th><th className={TH}>Value</th><th className={TH}>Taken from</th><th className={TH}>Why</th><th className={TH}>Deciding tier</th></tr>
           </thead>
           <tbody>
             {v.golden.map((g) => (
-              <tr key={g.field} className="border-t border-slate-200 dark:border-slate-800">
+              <tr key={g.field}>
                 <th scope="row" className={TH}>{g.field}</th>
                 <td className={TD}>{g.value}</td>
                 <td className={TD}>{g.from}<span className={cn("block text-xs", MUTED)}>{g.where}</span></td>
@@ -67,7 +69,7 @@ export function Cluster({ view: v }: { view: ClusterView }) {
       </Section>
 
       <Section title="Member records side by side">
-        <table className="w-full text-sm">
+        <table className="data-table member-table">
           <thead>
             <tr>
               <th className={TH}><span className="sr-only">Field</span></th>
@@ -76,7 +78,7 @@ export function Cluster({ view: v }: { view: ClusterView }) {
           </thead>
           <tbody>
             {MEMBER_ROWS.map(([label, get]) => (
-              <tr key={label} className="border-t border-slate-200 dark:border-slate-800">
+              <tr key={label}>
                 <th scope="row" className={cn(TH, MUTED)}>{label}</th>
                 {v.members.map((m) => <td key={m.record_id} className={TD}>{get(m) ?? "Missing"}</td>)}
               </tr>
@@ -86,13 +88,13 @@ export function Cluster({ view: v }: { view: ClusterView }) {
       </Section>
 
       <Section title="Merge log lines for this person">
-        <table className="w-full text-sm">
+        <table className="data-table provenance-table">
           <thead className={MUTED}>
             <tr><th className={TH}>Line</th><th className={TH}>Action</th><th className={TH}>Pair</th><th className={TH}>Tier</th><th className={TH}>Score</th><th className={TH}>Rule</th></tr>
           </thead>
           <tbody>
             {v.lines.map((e) => (
-              <tr key={e.line} className="border-t border-slate-200 tabular-nums dark:border-slate-800">
+              <tr key={e.line} className="tabular-nums">
                 <td className={TD}>{e.line}</td>
                 <td className={TD}>{e.action === "merge" ? "Merged" : "Split"}</td>
                 <td className={TD}>{e.a} and {e.b}</td>
@@ -105,7 +107,7 @@ export function Cluster({ view: v }: { view: ClusterView }) {
         </table>
       </Section>
 
-      <Section title="Household">
+      <Section title="Household" table={false}>
         <HouseholdGraph household={v.household} />
       </Section>
     </div>

@@ -10,10 +10,11 @@ const STEPS = [
 
 export function DemoWalkthrough() {
   return (
-    <nav aria-label="Demo walkthrough" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-      <span className="font-medium">Walk the evidence:</span>
-      {STEPS.map(({ label, href }) => (
-        <Link key={href} href={href} className="rounded text-indigo-700 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:text-indigo-300">
+    <nav aria-label="Demo walkthrough" className="walkthrough">
+      <span className="walkthrough-label">Walk the evidence:</span>
+      {STEPS.map(({ label, href }, i) => (
+        <Link key={href} href={href} className="walkthrough-link">
+          <span aria-hidden className="walkthrough-number">{i + 1}</span>
           {label}
         </Link>
       ))}

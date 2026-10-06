@@ -1,4 +1,5 @@
 import { CARD } from "@/components/tiles";
+import { PageHeader } from "@/components/page-header";
 import type { clusterList } from "@/lib/clusters";
 import { count } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,7 @@ type Entry = ReturnType<typeof clusterList>[number];
 // Styles sit on the list, not on each item, to keep the page small.
 function Links({ items }: { items: Entry[] }) {
   return (
-    <ul className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3 [&_a]:text-indigo-700 [&_a]:underline dark:[&_a]:text-indigo-300 [&_span]:text-slate-600 dark:[&_span]:text-slate-400">
+    <ul className="cluster-links">
       {items.map((c) => (
         <li key={c.personId}>
           <a href={c.href}>{c.name}</a>{" "}
@@ -26,22 +27,22 @@ export function ClusterList({ items }: { items: Entry[] }) {
     { title: "Nicknames kept as aliases", items: items.filter((c) => c.aliases.length > 0) },
   ];
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-semibold">Why did these records become one person?</h1>
-        <p className="mt-1 text-sm">
+    <div className="page-stack">
+      <PageHeader eyebrow="Bob Resolve / Person clusters" title="Why did these records become one person?">
+        <p className="page-description">
           {count(items.length)} people are made of two or more records. Open one to see its golden record, the source
           of every field, the member records side by side, its merge log lines, and its household.
         </p>
-      </header>
+        <p className="provenance">Synthetic data only; no full MBI is shown.</p>
+      </PageHeader>
       {groups.map((g) => (
-        <section key={g.title} aria-label={g.title} className={cn(CARD, "p-4")}>
-          <h2 className="text-sm font-semibold">{g.title} ({count(g.items.length)})</h2>
+        <section key={g.title} aria-label={g.title} className={cn(CARD, "table-panel")}>
+          <h2 className="section-title">{g.title} ({count(g.items.length)})</h2>
           <Links items={g.items} />
         </section>
       ))}
-      <details className={cn(CARD, "p-4")}>
-        <summary className="cursor-pointer text-sm font-semibold">Every person with two or more records ({count(items.length)})</summary>
+      <details className={cn(CARD, "table-panel")}>
+        <summary className="cursor-pointer section-title">Every person with two or more records ({count(items.length)})</summary>
         <Links items={items} />
       </details>
     </div>
