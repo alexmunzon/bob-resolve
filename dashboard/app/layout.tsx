@@ -10,12 +10,13 @@ export const metadata: Metadata = {
     "How many real people are in this book of business, and how sure are we? Every merge explained. Synthetic data only.",
 };
 
-// Only built pages are in the nav, so every item is a link a keyboard can reach. Benchmark and
-// Changes join when their PR lands; a line under the nav says so.
+// Only built pages are in the nav, so every item is a link a keyboard can reach. Changes joins
+// when its PR lands; a line under the nav says so.
 const PAGES: { label: string; href: string }[] = [
   { label: "Overview", href: "/" },
   { label: "Clusters", href: "/clusters" },
   { label: "Review queue", href: "/review" },
+  { label: "Benchmark", href: "/benchmark" },
 ];
 
 // Runs before the first paint, so a dark page never flashes white. The saved choice wins;
@@ -41,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </li>
             ))}
           </ul>
-          <p className="hidden px-5 pb-4 text-xs text-slate-600 lg:block dark:text-slate-400">Benchmark and Changes pages come in a later release.</p>
+          <p className="hidden px-5 pb-4 text-xs text-slate-600 lg:block dark:text-slate-400">The Changes page comes in a later release.</p>
         </nav>
         <main className="mx-auto w-full max-w-[1120px] min-w-0 px-4 py-6 sm:px-10">{children}</main>
       </body>
