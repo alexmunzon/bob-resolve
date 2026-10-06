@@ -154,9 +154,19 @@ describe("Review queue", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Showing 151-151 of 151 items");
     const pager = screen.getByRole("navigation", { name: "Review queue pages" });
     expect(pager.className).toContain("flex-wrap");
-    expect(within(pager).getByText("7")).toHaveAttribute("aria-current", "page");
+    const current = within(pager).getByText("7");
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(current).toHaveAttribute("aria-label", "Page 7");
     expect(within(pager).getByRole("link", { name: "Page 6" })).toHaveTextContent(/^6$/);
     expect(pager.querySelector("[aria-disabled]")).toBeNull();
+  });
+
+  it("says there is nothing to review when the run has no items and no filter is set", () => {
+    render(<ReviewQueue items={[]} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("No items to review");
+    expect(screen.getByRole("status")).not.toHaveTextContent("filters");
+    expect(screen.queryAllByRole("listitem", { name: /^Item / })).toHaveLength(0);
   });
 
   it("says plainly when the chosen filters match nothing", async () => {

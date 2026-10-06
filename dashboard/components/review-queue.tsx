@@ -143,7 +143,9 @@ export function ReviewQueue({
         <Select label="Rule" value={rule} onChange={(value) => updateFilter("rule", value)} options={options.rules} />
         <p role="status" className={cn("text-sm tabular-nums", MUTED)}>
           {shown.length === 0
-            ? `No items match these filters (${items.length} total)`
+            ? suggestion || rule
+              ? `No items match these filters (${items.length} total)`
+              : "No items to review"
             : suggestion || rule
               ? `Showing ${first}-${last} of ${shown.length} filtered items (${items.length} total)`
               : `Showing ${first}-${last} of ${shown.length} items`}
@@ -158,7 +160,7 @@ export function ReviewQueue({
           : <span className={MUTED}>Previous page</span>}
         <span className="flex flex-wrap items-center gap-3">
           {pageLinks.map((number) => number === currentPage
-            ? <span key={number} aria-current="page" className="font-semibold tabular-nums">{number}</span>
+            ? <span key={number} aria-current="page" aria-label={`Page ${number}`} className="font-semibold tabular-nums">{number}</span>
             : <a key={number} className="underline underline-offset-2 tabular-nums" href={pageHref(number)} aria-label={`Page ${number}`}>{number}</a>)}
           <span className={cn("tabular-nums", MUTED)}>of {pageCount} pages</span>
         </span>
