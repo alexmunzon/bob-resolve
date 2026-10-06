@@ -18,6 +18,44 @@ const tile = (label: string) => within(screen.getByRole("group", { name: label }
 const panel = (label: RegExp) => within(screen.getByRole("region", { name: label }));
 
 describe("Overview", () => {
+  it("warns on the first screen that this demo is not held out", async () => {
+    await show();
+    expect(screen.getByText(/These demo fixtures were used while building the rules/)).toHaveTextContent("not held out and do not measure accuracy on real agency files");
+  });
+
+  it("explains that shared identifiers were used before display masking", async () => {
+    await show();
+    expect(screen.getByText(/MBI used for matching, then masked for display/)).toBeInTheDocument();
+  });
+
+  it("does not confuse masked identifiers with a no-shared-ids run", async () => {
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    run.scorecard.shared_ids = false;
+    render(<Overview data={overview(run)} />);
+    expect(screen.getByText(/MBI and policy IDs withheld from matching/)).toBeInTheDocument();
+    expect(screen.queryByText(/MBI used for matching/)).toBeNull();
+  });
+
+  it("offers a short evidence walkthrough with working demo destinations", async () => {
+    await show();
+    const guide = within(screen.getByRole("navigation", { name: "Demo walkthrough" }));
+    expect(guide.getByRole("link", { name: "Strong match" })).toHaveAttribute("href", "/clusters/crm-C-00083");
+    expect(guide.getByRole("link", { name: "Weak match" })).toHaveAttribute("href", "/review?rule=GR-007");
+    expect(guide.getByRole("link", { name: "Conflicting pair" })).toHaveAttribute("href", "/review?rule=GR-005");
+    expect(guide.getByRole("link", { name: "Honest benchmark" })).toHaveAttribute("href", "/benchmark");
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    const strong = run.people.find((p) => p.personId === "person:crm:C-00083")!;
+    expect(strong.aliases).toContain("Bob");
+    expect(strong.fields.first_name.value).toBe("Robert");
+    expect(strong.fields.last_name.value).toBe("Murphy");
+    const weak = run.queue.filter((q) => q.rule_ids.includes("GR-007"));
+    expect(weak).toHaveLength(8);
+    expect(weak.some((q) => q.suggestion === "unsure" && q.records.every((r) => r.first_name === "Kevin" && r.last_name === "Khan"))).toBe(true);
+    const conflicts = run.queue.filter((q) => q.rule_ids.includes("GR-005"));
+    expect(conflicts).toHaveLength(9);
+    expect(conflicts.some((q) => q.suggestion === "different_people" && q.records.some((r) => r.first_name === "Gabrielle" && r.last_name === "Smith") && q.records.some((r) => r.first_name === "Carlos" && r.last_name === "Smith"))).toBe(true);
+  });
+
   it("asks the first-screen question and answers it with the scorecard numbers", async () => {
     await show();
     const sc = await card();

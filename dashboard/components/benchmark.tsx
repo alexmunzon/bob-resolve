@@ -37,6 +37,13 @@ function RunResults({ run, index }: { run: BenchmarkRun; index: number }) {
           Model tiers used: {tiers}. Shared IDs {shared}.{" "}
           {run.candidate_pairs === null ? "Candidate pairs not recorded." : `${count(run.candidate_pairs)} candidate pairs.`}
         </p>
+        {run.shared_ids !== null && (
+          <p className={`text-sm ${MUTED}`}>
+            {run.shared_ids
+              ? "MBI and linking policy IDs were available to the matcher. Display masking does not remove that matching signal."
+              : "MBI and linking policy IDs were withheld from matching."}
+          </p>
+        )}
         {run.dataset.status !== "held_out" && (
           <p role="note" className="text-sm font-medium text-amber-800 dark:text-amber-200">
             This data is not held out, so these figures are not accuracy on data the engine has never seen.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DemoWalkthrough } from "@/components/demo-walkthrough";
 import { SeverityBadge } from "@/components/severity-badge";
 import { CARD, Tile } from "@/components/tiles";
 import { count, plural } from "@/lib/format";
@@ -55,7 +56,9 @@ export function Overview({ data: d }: { data: OverviewData }) {
         <p className={cn("text-xs tabular-nums", MUTED)}>
           Run {d.runId}, as of {d.asOf}, engine {d.engine}. Synthetic data only; no full MBI is shown.
         </p>
+        <p className={cn("text-xs", MUTED)}>{d.identifierContext}</p>
       </header>
+      <DemoWalkthrough />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <div className="col-span-2 lg:col-span-1">
           <Tile label="Records in" value={d.recordsIn} context={`${sources}, including ${count(d.unidentifiable)} unidentifiable`} />
@@ -67,6 +70,9 @@ export function Overview({ data: d }: { data: OverviewData }) {
       </div>
       <section aria-labelledby="sure-heading" className="space-y-2">
         <h2 id="sure-heading" className="text-sm font-semibold">How sure are we? Measured on synthetic data</h2>
+        <p className={cn("text-xs", MUTED)}>
+          These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.
+        </p>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {d.metrics.map((m) => <MetricCard key={m.name} m={m} />)}
         </div>

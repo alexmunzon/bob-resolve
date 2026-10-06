@@ -7,10 +7,14 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/benchmark" }));
 
 // jsdom cannot measure layout, so this pins the intent: on a phone the tabs wrap onto a
 // second line instead of scrolling sideways, where the last tab was cut off.
-function nav() {
+function layout() {
   const html = renderToStaticMarkup(<RootLayout params={Promise.resolve({})}>page</RootLayout>);
   const doc = new DOMParser().parseFromString(html, "text/html");
-  return doc.querySelector('nav[aria-label="Main"]')!;
+  return doc;
+}
+
+function nav() {
+  return layout().querySelector('nav[aria-label="Main"]')!;
 }
 
 describe("Main nav", () => {
@@ -33,5 +37,20 @@ describe("Main nav", () => {
 
   it("keeps the current-page highlight", () => {
     expect(nav().querySelector('a[aria-current="page"]')?.textContent).toBe("Benchmark");
+  });
+});
+
+describe("Agency Data Trust Series navigation", () => {
+  it("links all three demos and identifies the current build", () => {
+    const series = layout().querySelector('nav[aria-label="Agency Data Trust Series"]')!;
+    expect(series).not.toBeNull();
+    expect(series.textContent).toContain("Separate demos, shared trust principles.");
+    const links = [...series.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]);
+    expect(links).toEqual([
+      ["1. Intake Kit", "https://agency-intake-kit.vercel.app"],
+      ["2. Bob Resolve", "/"],
+      ["3. Plan Diff", "https://plan-diff.vercel.app"],
+    ]);
+    expect(series.querySelector('[aria-current="true"]')?.textContent).toBe("2. Bob Resolve");
   });
 });

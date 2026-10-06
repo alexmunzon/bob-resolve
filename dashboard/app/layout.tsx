@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { NavLink } from "@/components/nav-link";
+import { SeriesNav } from "@/components/series-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
@@ -30,20 +31,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 lg:flex-row dark:bg-slate-950 dark:text-slate-100">
-        <nav aria-label="Main" className="border-b border-slate-200 bg-white lg:w-60 lg:shrink-0 lg:border-r lg:border-b-0 dark:border-slate-800 dark:bg-slate-900">
+        <aside className="border-b border-slate-200 bg-white lg:w-60 lg:shrink-0 lg:border-r lg:border-b-0 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 lg:px-5 lg:pt-6">
             <p className="text-sm font-semibold">bob-resolve</p>
             <ThemeToggle />
           </div>
-          <ul className="flex flex-wrap gap-1 px-2 pb-2 text-sm lg:flex-col lg:flex-nowrap lg:px-3">
-            {PAGES.map(({ label, href }) => (
-              <li key={label} className="shrink-0">
-                <NavLink href={href} label={label} />
-              </li>
-            ))}
-          </ul>
+          <nav aria-label="Main">
+            <ul className="flex flex-wrap gap-1 px-2 pb-2 text-sm lg:flex-col lg:flex-nowrap lg:px-3">
+              {PAGES.map(({ label, href }) => (
+                <li key={label} className="shrink-0">
+                  <NavLink href={href} label={label} />
+                </li>
+              ))}
+            </ul>
+          </nav>
           <p className="hidden px-5 pb-4 text-xs text-slate-600 lg:block dark:text-slate-400">The Changes page comes in a later release.</p>
-        </nav>
+          <SeriesNav />
+        </aside>
         <main className="mx-auto w-full max-w-[1120px] min-w-0 px-4 py-6 sm:px-10">{children}</main>
       </body>
     </html>

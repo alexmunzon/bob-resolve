@@ -151,6 +151,9 @@ export function overview(run: Run) {
     runId: manifest.run_id,
     asOf: manifest.as_of,
     engine: manifest.versions.engine,
+    identifierContext: card.shared_ids
+      ? "MBI used for matching, then masked for display. Masking is not a no-shared-ids evaluation."
+      : "MBI and policy IDs withheld from matching; any displayed MBI is masked.",
   };
 }
 
