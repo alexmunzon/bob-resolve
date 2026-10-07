@@ -38,8 +38,8 @@ Use writable temporary caches if needed; see the README. Do not update locks jus
 - Keep Jev replay behavior and paid/model tiers off. Do not enable a live or record mode as part of
   routine tests. No implemented model arm exists in this version.
 - Treat untrusted data and dependency changes as separate review work. Use supported upstream fixes;
-  do not force an audit upgrade or an unverified override. See [SECURITY.md](SECURITY.md) for the
-  known braces tooling advisory and reporting instructions.
+  do not force an audit upgrade or add an untested override. See [SECURITY.md](SECURITY.md) for how
+  the braces tooling advisory was removed (a tested local fast-glob stand-in) and reporting instructions.
 - CI uses read-only token permissions and full-SHA action pins. When updating an action, verify the
   official upstream commit, retain its version comment, and rerun verification.
 
