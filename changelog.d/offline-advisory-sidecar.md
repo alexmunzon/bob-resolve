@@ -1,0 +1,1 @@
+- Add an optional offline second-opinion sidecar CLI for verified synthetic integration resolutions. Keep all advice pending human review, bound to exact evidence, with no provider calls or deterministic-output changes.
