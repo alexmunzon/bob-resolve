@@ -5,7 +5,7 @@ requires-python = "==3.12.*"
 [[package]]
 name = "agency-data-commons"
 version = "0.2.0"
-source = { git = "file:///Users/alexmunzon/Data%20intake/agency-data-commons?rev=v0.2.0#a9a670fbd9ebced6f2201177d20716fb9944a4c0" }
+source = { git = "https://github.com/alexmunzon/agency-data-commons?rev=v0.2.0#a9a670fbd9ebced6f2201177d20716fb9944a4c0" }
 dependencies = [
     { name = "faker" },
     { name = "httpx" },
@@ -115,7 +115,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agency-data-commons", git = "file:///Users/alexmunzon/Data%20intake/agency-data-commons?rev=v0.2.0" },
+    { name = "agency-data-commons", git = "https://github.com/alexmunzon/agency-data-commons?rev=v0.2.0" },
     { name = "duckdb" },
     { name = "httpx" },
     { name = "jellyfish" },

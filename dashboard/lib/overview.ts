@@ -1,5 +1,5 @@
 import { count, formatUsd, percent, plural } from "@/lib/format";
-import type { Metric, Run, Usage } from "@/lib/run-loader";
+import type { Metric, Resolution, Run, Usage } from "@/lib/run-loader";
 
 // Turns a run into the numbers the Overview shows. Pure, so tests check it without rendering.
 
@@ -14,8 +14,9 @@ const OFF_REASONS = {
   llm: "Off until an Anthropic key and a spend cap are approved.",
 };
 
-export interface Row { label: string; value: string; note?: string }
-export interface MetricView { name: string; value: string; meets: boolean; target: string; context: string }
+export interface Row { label: string; value: string; note?: string; href?: string }
+/** meets is null when no target applies to the number. */
+export interface MetricView { name: string; value: string; meets: boolean | null; target: string; context: string }
 
 const words = (key: string) => key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
@@ -44,14 +45,54 @@ function usageTier(name: string, usage: Usage, merges: number, offReason: string
   };
 }
 
+const metricContext = (m: Metric, sideLabel: string) =>
+  `Enrollment side ${sideLabel}, shared ids ${m.shared_ids ? "on" : "off (MBI withheld)"}. ${words(m.label)}.`;
+
 function metric(name: string, m: Metric, sideLabel: string): MetricView {
   return {
     name,
     value: percent(m.value),
     meets: m.meets_target,
     target: `Target at least ${percent(m.target)}`,
-    context: `Enrollment side ${sideLabel}, shared ids ${m.shared_ids ? "on" : "off (MBI withheld)"}. ${words(m.label)}.`,
+    context: metricContext(m, sideLabel),
   };
+}
+
+// Pairs merged by the engine alone, with no reviewer. No target: the 90% target was set for the
+// suggestion-inclusive figure. An older run without resolution counts says so, never borrows that figure.
+function automaticRecall(r: Resolution | undefined, m: Metric, sideLabel: string): MetricView {
+  const found = r && r.true_pairs > 0;
+  return {
+    name: "Automatic recall",
+    value: found ? percent(r.found_automatically / r.true_pairs) : "Not recorded",
+    meets: null,
+    target: found
+      ? `${count(r.found_automatically)} of ${count(r.true_pairs)} true pairs merged with no reviewer`
+      : r
+        ? "No true pairs in this run"
+        : "This run did not record resolution counts",
+    context: metricContext(m, sideLabel),
+  };
+}
+
+// A what-if, not a result: it counts a same-person suggestion as found before anyone confirms it,
+// so it carries no target badge.
+function hypothetical(m: Metric, sideLabel: string): MetricView {
+  return {
+    name: "Recall if every same-person suggestion were confirmed",
+    value: percent(m.value),
+    meets: null,
+    target: "Hypothetical. Counts a same-person suggestion as found even with no reviewer",
+    context: metricContext(m, sideLabel),
+  };
+}
+
+function reviewStatus(r: Resolution | undefined): Row[] {
+  const n = (v: number | undefined) => (v === undefined ? "Not recorded" : count(v));
+  return [
+    { label: "Confirmed by a reviewer", value: n(r?.human_confirmed_merges), note: "Merges a person approved." },
+    { label: "Awaiting review", value: n(r?.awaiting_review), href: "/review", note: "Items no one has decided yet." },
+  ];
 }
 
 function runTime(timings: Record<string, number> | null): Row {
@@ -96,9 +137,11 @@ export function overview(run: Run) {
     })),
     metrics: [
       metric("Precision of auto-merges", card.metrics.auto_merge_precision, side),
-      metric("Recall after review", card.metrics.recall_after_review, side),
+      automaticRecall(card.resolution, card.metrics.recall_after_review, side),
       metric("Blocking recall", card.metrics.blocking_recall, side),
+      hypothetical(card.metrics.recall_after_review, side),
     ],
+    reviewStatus: reviewStatus(card.resolution),
     usage: (["jev", "llm"] as const).map((key) => ({
       label: key === "jev" ? "Jev" : "LLM",
       value: `${formatUsd(manifest[key].cost_usd)}, ${plural(manifest[key].calls, "call")}`,
@@ -108,6 +151,9 @@ export function overview(run: Run) {
     runId: manifest.run_id,
     asOf: manifest.as_of,
     engine: manifest.versions.engine,
+    identifierContext: card.shared_ids
+      ? "MBI used for matching, then masked for display. Masking is not a no-shared-ids evaluation."
+      : "MBI and policy IDs withheld from matching; any displayed MBI is masked.",
   };
 }
 

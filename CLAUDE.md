@@ -11,7 +11,7 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - `cd engine && uv run bob-resolve fixtures derive --snapshot ../fixtures/agency-a-snapshot --out ../fixtures/agency-a-derived`   rebuild the derived clean enrollment side.
 - `cd engine && uv run pytest -q tests/unit/test_cli.py -k version`   run one test file or test.
 - `cd engine && uv run bob-resolve run --enrollment snapshot --out ../runs --run-id <id>`   write one immutable run folder (add `--no-shared-ids`, `--as-of`, `--now` as needed).
-- `cd engine && uv run bob-resolve run --world multi-a-b --out ../runs --run-id <id>`   held-out two-agency world from agency-data-commons v0.2.0 (generated into git-ignored fixtures/generated/).
+- `cd engine && uv run bob-resolve run --world multi-a-b --out ../runs --run-id <id>`   seen two-agency world from agency-data-commons v0.2.0 (tuned on in PR 10b; generated into git-ignored fixtures/generated/).
 - `cd engine && uv run bob-resolve review apply --run ../runs/<id> --decisions <file.jsonl> --out ../runs --run-id <new id>`   apply human decisions as a new run; the old run is never changed.
 - `npm run demo`   regenerate the committed demo run in dashboard/public/demo-run/ (derived side, shared ids on, MBI masked). Byte-identical on a rerun.
 - `cd dashboard && npm run dev`   local dashboard.
@@ -22,11 +22,13 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - Guard rails override the score and are never overridden by Jev or an LLM: different generational
   suffix is never auto-merged (GR-001); a shared MBI with DOBs more than one edit apart is never
   auto-merged (GR-002); shared phone or email alone never merges (GR-003); an ambiguous identity key
-  never auto-merges, but one person's own records tied by MBI, phone, email, or street never count as conflicting
-  (GR-004); first names that are not compatible, more than one typo apart, or one edit apart at a vowel or y ending
+  never auto-merges, but one person's own records tied by MBI, phone, or email never count as conflicting,
+  though a different MBI always does and a shared street is not a tie (GR-004); first names that are not
+  compatible, more than one typo apart, or one edit apart at a vowel or y ending
   (Patrick and Patricia, Andrew and Andrea) never auto-merge, even with a shared MBI (GR-005); a year-changing DOB
   transposition needs another agreeing identifier (GR-006); name plus DOB as the only agreeing evidence never
-  auto-merges: it needs MBI (shared ids on), phone, email, street, or a linking policy (GR-007).
+  auto-merges: it needs MBI (shared ids on), phone, email, street, or a linking policy (GR-007);
+  name plus DOB plus a shared street only never auto-merges: a street is household context (GR-008).
 - Two authoritative sources that disagree on DOB or MBI are never guessed: review with IDENTITY_CONFLICT.
 - The merge log is append-only JSONL. Never rewrite a line; a correction is a new line.
 - JEV_MODE defaults to replay. The LLM arm defaults off. live and record spend money: no agent sets them;
@@ -45,7 +47,7 @@ pairs to a human review queue. SPEC.md is the source of truth.
 - The repo path contains a space ("Data intake"). Quote every absolute path in shell commands and scripts.
 
 ## Workflow
-- One PR per session per worktree. Branch names pr-NN-short-name. Under 400 changed lines.
+- One worktree per PR. Branch names pr-NN-short-name. No PR size limit; related changes may share one PR (Alex, 2026-10-06).
 - Tests first from SPEC examples, then implementation, then `npm run verify`, then show the output.
 - Add one changelog fragment per PR in changelog.d/ (see changelog.d/README.md). Do not edit CHANGELOG.md directly.
 - Never push, open a PR, merge, create a GitHub repo, or link Vercel without Alex's explicit go-ahead.

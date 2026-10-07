@@ -25,5 +25,5 @@ __pycache__
 # OS
 .DS_Store
 
-# Held-out world generated from the pinned agency-data-commons (PR 10); rebuilt on demand
+# Seen two-agency world generated from the pinned agency-data-commons (PR 10); rebuilt on demand
 fixtures/generated/

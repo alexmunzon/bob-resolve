@@ -103,15 +103,18 @@ def to_records(df: pl.DataFrame, source: Source, row_prefix: str = "") -> list[P
     (after `row_prefix`, so a second agency's rows get their own ids, such as enrollment:B-7)."""
     fields = set(PersonRecord.model_fields) - {"record_id", "source", "lineage"}
     out = []
+    seen: set[str] = set()
     for row in df.iter_rows(named=True):
         key = row["client_id"] if source == "crm" else f"{row_prefix}{row['row_number']}"
+        record_id = f"{source}:{key}"
+        if record_id in seen:
+            raise ValueError(f"Duplicate record_id: {record_id}")
+        seen.add(record_id)
         values: dict[str, Any] = {k: v for k, v in row.items() if k in fields}
         lineage = Lineage(
             source_file=row["source_file"],
             row_number=row["row_number"],
             raw_sha256=row["raw_sha256"],
         )
-        out.append(
-            PersonRecord(record_id=f"{source}:{key}", source=source, lineage=lineage, **values)
-        )
+        out.append(PersonRecord(record_id=record_id, source=source, lineage=lineage, **values))
     return out

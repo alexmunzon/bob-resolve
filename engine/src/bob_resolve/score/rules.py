@@ -17,6 +17,7 @@ from bob_resolve.config import (
     GRAY_SAME_PERSON_MIN,
     INDEPENDENT_EVIDENCE_LEVELS,
     OWN_RECORD_TIE_FIELDS,
+    PERSON_EVIDENCE_LEVELS,
     SCORE_BIAS,
     SCORE_HIGH,
     SCORE_LOW,
@@ -27,7 +28,7 @@ from bob_resolve.score.compare import Comparison, compare
 
 Decision = Literal["AUTO_MATCH", "GRAY", "AUTO_REJECT"]
 Suggestion = Literal["same_person", "different_people", "unsure"]
-RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007"]
+RuleId = Literal["GR-001", "GR-002", "GR-003", "GR-004", "GR-005", "GR-006", "GR-007", "GR-008"]
 GUARD_RAILS: dict[RuleId, str] = {
     "GR-001": "Different generational suffix (Jr and Sr) never auto-matches.",
     "GR-002": "Shared MBI with a DOB neither within one edit nor a month-day swap: "
@@ -35,7 +36,8 @@ GUARD_RAILS: dict[RuleId, str] = {
     "GR-003": "Shared phone or email alone (names and DOB not compatible) never auto-matches.",
     "GR-004": "Ambiguous identity key: two or more records share first name, last name, and DOB "
     "and some holder conflicts with another, so no pair on that key auto-matches. Conflicts "
-    "between the pair's own records (tied by MBI, phone, email, or street) do not count.",
+    "between one person's own records (tied by MBI, phone, or email) do not count, but a "
+    "different MBI (shared ids on) always counts and a shared street is not a tie.",
     "GR-005": "First names incompatible: not equal, not nicknames or an initial, and more than "
     "one typo apart (Patrick and Patricia), so the pair never auto-matches. Two known formal "
     "names (Mario and Maria), a name under five letters, or a changed ending (Andrew and "
@@ -44,9 +46,11 @@ GUARD_RAILS: dict[RuleId, str] = {
     "MBI, phone, email, or street agreeing: never auto-matches.",
     "GR-007": "Name and DOB only: the pair agrees on nothing else (no MBI with shared ids, "
     "phone, email, street, or linking policy), so it never auto-matches.",
+    "GR-008": "Name and birth date plus a shared street only: a household or care facility "
+    "address is shared by many people, so it is not proof of one person; never auto-matches.",
 }
 # Rails that only stop an auto-match with an honest "unsure": the records may well be one person.
-_UNSURE_RAILS: frozenset[RuleId] = frozenset({"GR-006", "GR-007"})
+_UNSURE_RAILS: frozenset[RuleId] = frozenset({"GR-006", "GR-007", "GR-008"})
 IdentityKey = tuple[str, str, str]
 _CLOSE_DOB = frozenset({"exact", "transposition", "month_day_swap", "one_edit"})
 
@@ -79,11 +83,22 @@ def independent_evidence(c: Comparison) -> bool:
     return any(getattr(c, f) in levels for f, levels in INDEPENDENT_EVIDENCE_LEVELS.items())
 
 
-def name_dob_only(c: Comparison) -> bool:
-    """Names and DOB agree (equal, nickname, or a typo; close DOB) and nothing else does."""
+def _name_dob_agree(c: Comparison) -> bool:
+    """Names and DOB agree: equal, nickname, or a typo; close last name; close DOB."""
     first_ok = c.first in ("equal", "nickname") or (c.first == "close" and bool(c.first_typo))
-    agree = first_ok and c.last in ("equal", "close") and c.dob in _CLOSE_DOB
-    return agree and not independent_evidence(c)
+    return first_ok and c.last in ("equal", "close") and c.dob in _CLOSE_DOB
+
+
+def name_dob_only(c: Comparison) -> bool:
+    """Names and DOB agree and nothing else does (GR-007)."""
+    return _name_dob_agree(c) and not independent_evidence(c)
+
+
+def name_dob_street_only(c: Comparison) -> bool:
+    """Names and DOB agree, the street is the same, and no person evidence (MBI with shared
+    ids, phone, email, linking policy) agrees (GR-008). Never true with name_dob_only."""
+    person = any(getattr(c, f) in levels for f, levels in PERSON_EVIDENCE_LEVELS.items())
+    return _name_dob_agree(c) and c.street == "same" and not person
 
 
 def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
@@ -107,6 +122,8 @@ def guard_rails(c: Comparison) -> tuple[RuleId, ...]:
         hits.append("GR-006")
     if name_dob_only(c):  # GR-007 (Alex, PR 10b): never auto-merges, whatever the book holds
         hits.append("GR-007")
+    if name_dob_street_only(c):  # GR-008 (PR 21b): a shared street is household context
+        hits.append("GR-008")
     return tuple(hits)
 
 
@@ -127,8 +144,13 @@ def _conflict(a: NormalizedRecord, b: NormalizedRecord, shared_ids: bool) -> boo
     return all(x and y and x != y for x, y in contact)
 
 
+def _mbi_differs(a: NormalizedRecord, b: NormalizedRecord) -> bool:
+    """Both MBIs present and different. Only called with shared ids on."""
+    return bool(a.mbi and b.mbi and a.mbi != b.mbi)
+
+
 def _tied(x: NormalizedRecord, y: NormalizedRecord, shared_ids: bool) -> bool:
-    """x and y are one person's records: an exact MBI (ids on), phone, email, or street."""
+    """x and y are one person's records: an exact MBI (ids on), phone, or email."""
     return any(
         (f != "mbi" or shared_ids) and getattr(x, f) and getattr(x, f) == getattr(y, f)
         for f in OWN_RECORD_TIE_FIELDS
@@ -141,19 +163,23 @@ def _tie_groups(rs: Sequence[NormalizedRecord], shared_ids: bool) -> list[int]:
 
     def root(i: int) -> int:
         while group[i] != i:
+            group[i] = group[group[i]]
             i = group[i]
         return i
 
     for i, j in combinations(range(len(rs)), 2):
         if _tied(rs[i], rs[j], shared_ids):
-            group[root(i)] = root(j)
+            a, b = root(i), root(j)
+            if a != b:
+                group[a] = b
     return [root(i) for i in range(len(rs))]
 
 
 def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set[IdentityKey]:
     """GR-004: identity keys held by two or more records where two holders conflict. Two
     holders tied together (directly or through a chain of ties) are one person's own records,
-    so their conflict does not count (PR 10b): a person who moved is not ambiguous."""
+    so their conflict does not count (PR 10b): a person who moved is not ambiguous. With shared
+    ids on, two different MBIs always conflict, whatever ties the holders (PR 21c)."""
     holders: dict[IdentityKey, list[NormalizedRecord]] = defaultdict(list)
     for r in records:
         if (k := identity_key(r)) is not None:
@@ -164,7 +190,8 @@ def ambiguous_keys(records: Sequence[NormalizedRecord], shared_ids: bool) -> set
             continue
         g = _tie_groups(rs, shared_ids)
         if any(
-            g[i] != g[j] and _conflict(rs[i], rs[j], shared_ids)
+            (shared_ids and _mbi_differs(rs[i], rs[j]))
+            or (g[i] != g[j] and _conflict(rs[i], rs[j], shared_ids))
             for i, j in combinations(range(len(rs)), 2)
         ):
             out.add(k)

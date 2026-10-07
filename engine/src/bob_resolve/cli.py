@@ -101,7 +101,9 @@ def score(
     day: date = as_of.date()
     records, key = load_normalized(fixtures, enrollment, as_of=day)
     scored = score_candidates(records, candidate_pairs(records, shared_ids), shared_ids)
-    _, kept, _ = split_on_conflict(records, [p for p in scored if p.decision == "AUTO_MATCH"])
+    _, kept, _ = split_on_conflict(
+        records, [p for p in scored if p.decision == "AUTO_MATCH"], shared_ids=shared_ids
+    )
     rep = evaluate_scores(scored, key, shared_ids, kept=kept)  # final edges (Review 2, F8)
     label = " (derived from the answer key)" if enrollment == "derived" else ""
     typer.echo(f"enrollment: {enrollment}{label}; shared ids: {'on' if shared_ids else 'off'}")
@@ -145,7 +147,7 @@ def run_command(
         typer.Option(help="Agency A world: snapshot, derived (from the answer key), or hard-cases"),
     ] = None,
     world: Annotated[
-        World, typer.Option(help="agency-a (pick --enrollment) or multi-a-b (held-out, commons)")
+        World, typer.Option(help="agency-a (pick --enrollment) or multi-a-b (seen, commons)")
     ] = "agency-a",
     shared_ids: Annotated[
         bool, typer.Option("--shared-ids/--no-shared-ids", help="Use MBI in blocking and scoring")

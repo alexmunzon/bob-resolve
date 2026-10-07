@@ -1,4 +1,5 @@
 import { ruleName, ruleText, sourceLabel, suggestionLabel } from "@/lib/explain";
+import { fixed } from "@/lib/format";
 import type { Evidence, QueueItem, RecordView, Run } from "@/lib/run-loader";
 
 // Turns the review queue into what the Review queue page shows. Pure, so tests check it without
@@ -63,8 +64,12 @@ function nearerLine(item: QueueItem, run: Run): string {
   if (score === undefined) return "No scored pair";
   const high = run.manifest.thresholds?.score_high ?? 0.99;
   const low = run.manifest.thresholds?.score_low ?? 0.1;
-  const d = item.cutoff_distance.toFixed(3);
-  return high - score <= score - low ? `${d} below the auto-match line (${high})` : `${d} above the auto-reject line (${low})`;
+  const matchIsNearer = Math.abs(high - score) <= Math.abs(score - low);
+  const cutoff = matchIsNearer ? high : low;
+  const line = matchIsNearer ? "auto-match" : "auto-reject";
+  if (score === cutoff) return `at the ${line} line (${cutoff})`;
+  const direction = score > cutoff ? "above" : "below";
+  return `${fixed(Math.abs(score - cutoff), 3)} ${direction} the ${line} line (${cutoff})`;
 }
 
 export function reviewItems(run: Run) {
@@ -76,7 +81,7 @@ export function reviewItems(run: Run) {
     suggestionLabel: suggestionLabel(item.suggestion),
     rules: item.rule_ids.map((id) => ({ id, name: ruleName(id), text: ruleText(id) })),
     detail: item.detail,
-    score: item.pairs[0]?.score.toFixed(3) ?? "None",
+    score: item.pairs[0] ? fixed(item.pairs[0].score, 3) : "None",
     nearer: nearerLine(item, run),
     alreadyOnePerson: item.already_one_person,
     records: item.records.map((r) => `${sourceLabel(r.source)} ${r.record_id}`),

@@ -9,7 +9,8 @@
     "GR-004": 0,
     "GR-005": 1280,
     "GR-006": 0,
-    "GR-007": 8
+    "GR-007": 8,
+    "GR-008": 0
   },
   "households": 1400,
   "label": "measured on synthetic data",
@@ -63,6 +64,13 @@
     }
   },
   "records_in": 3887,
+  "resolution": {
+    "awaiting_review": 19,
+    "found_automatically": 2159,
+    "human_confirmed_merges": 0,
+    "suggested_same_person": 0,
+    "true_pairs": 2167
+  },
   "review_queue": {
     "by_reason": {
       "GRAY_ZONE": 19

@@ -4,26 +4,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChartNoAxesColumnIncreasing, GitMerge, LayoutDashboard, ListChecks } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const ITEM = "block rounded-md px-3 py-1.5";
+const ICONS = { "/": LayoutDashboard, "/clusters": GitMerge, "/review": ListChecks, "/benchmark": ChartNoAxesColumnIncreasing };
 
 // Only the page you are on is highlighted and announced as the current page.
 export function NavLink({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
   // A person's page counts as the Clusters page.
   const current = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+  const Icon = ICONS[href as keyof typeof ICONS];
   return (
     <Link
       href={href}
       aria-current={current ? "page" : undefined}
-      className={cn(
-        ITEM,
-        "focus-visible:outline-2 focus-visible:outline-indigo-600",
-        current ? "bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300" : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-      )}
+      className={cn("nav-item", current && "is-current")}
     >
+      {Icon && <Icon aria-hidden className="size-4 shrink-0" />}
       {label}
     </Link>
   );

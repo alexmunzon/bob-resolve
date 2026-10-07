@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { ScanLine } from "lucide-react";
 
 import { NavLink } from "@/components/nav-link";
+import { SeriesNav } from "@/components/series-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
@@ -10,12 +12,13 @@ export const metadata: Metadata = {
     "How many real people are in this book of business, and how sure are we? Every merge explained. Synthetic data only.",
 };
 
-// Only built pages are in the nav, so every item is a link a keyboard can reach. Benchmark and
-// Changes join when their PR lands; a line under the nav says so.
+// Only built pages are in the nav, so every item is a link a keyboard can reach. Changes joins
+// when its PR lands; a line under the nav says so.
 const PAGES: { label: string; href: string }[] = [
   { label: "Overview", href: "/" },
   { label: "Clusters", href: "/clusters" },
   { label: "Review queue", href: "/review" },
+  { label: "Benchmark", href: "/benchmark" },
 ];
 
 // Runs before the first paint, so a dark page never flashes white. The saved choice wins;
@@ -28,22 +31,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 lg:flex-row dark:bg-slate-950 dark:text-slate-100">
-        <nav aria-label="Main" className="border-b border-slate-200 bg-white lg:w-60 lg:shrink-0 lg:border-r lg:border-b-0 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 lg:px-5 lg:pt-6">
-            <p className="text-sm font-semibold">bob-resolve</p>
-            <ThemeToggle />
+      <body className="app-shell font-sans">
+        <a href="#main-content" className="skip-link">Skip to content</a>
+        <aside className="app-sidebar">
+          <div className="sidebar-brand">
+            <span className="brand-mark"><ScanLine aria-hidden className="size-4" /></span>
+            <div>
+              <p className="brand-name">bob-resolve</p>
+              <p className="brand-caption">Identity resolution</p>
+            </div>
           </div>
-          <ul className="flex gap-1 overflow-x-auto px-2 pb-2 text-sm lg:flex-col lg:px-3">
-            {PAGES.map(({ label, href }) => (
-              <li key={label} className="shrink-0">
-                <NavLink href={href} label={label} />
-              </li>
-            ))}
-          </ul>
-          <p className="hidden px-5 pb-4 text-xs text-slate-600 lg:block dark:text-slate-400">Benchmark and Changes pages come in a later release.</p>
-        </nav>
-        <main className="mx-auto w-full max-w-[1120px] min-w-0 px-4 py-6 sm:px-10">{children}</main>
+          <p className="sidebar-section">Workspace</p>
+          <nav aria-label="Main">
+            <ul className="main-nav-list flex flex-wrap gap-1 lg:flex-col lg:flex-nowrap">
+              {PAGES.map(({ label, href }) => (
+                <li key={label} className="shrink-0">
+                  <NavLink href={href} label={label} />
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <p className="sidebar-note">The Changes page comes in a later release.</p>
+          <div className="sidebar-tools"><ThemeToggle /></div>
+          <SeriesNav />
+        </aside>
+        <main id="main-content" tabIndex={-1} className="app-main">{children}</main>
       </body>
     </html>
   );

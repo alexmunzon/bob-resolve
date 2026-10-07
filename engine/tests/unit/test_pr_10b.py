@@ -2,7 +2,7 @@
 
 1. GR-007 (Alex, 2026-10-05): name plus DOB as the only agreeing evidence never auto-merges.
 2. GR-005: opposite-sex look-alikes one edit apart at the end of the name are not a typo.
-3. GR-004: a person's own records (tied by MBI, phone, email, or street) are never ambiguous
+3. GR-004: a person's own records (tied by MBI, phone, or email) are never ambiguous
    with each other, so a person who moved is not ambiguous with themselves.
 """
 
@@ -102,10 +102,14 @@ def test_one_more_agreeing_fact_lifts_gr_007(ids: bool) -> None:
     crm = rec("crm:C-1", "david", "lindqvist", "19550819", phone="5550100006",
               email="d@example.com", address_line1="5 mock way", zip5="04001")  # fmt: skip
     enr = rec("enrollment:1", "david", "lindqvist", "19550819")
-    for field in ("phone", "email", "address_line1"):
+    for field in ("phone", "email"):
         other = enr.model_copy(update={field: getattr(crm, field)})
         p = pair([crm, other], crm.record_id, other.record_id, ids)
         assert p.decision == "AUTO_MATCH" and p.guard_rails == (), field
+    # PR 21b: a shared street alone lifts GR-007 but is household context, so GR-008 holds it.
+    street = enr.model_copy(update={"address_line1": crm.address_line1})
+    p = pair([crm, street], crm.record_id, street.record_id, ids)
+    assert p.decision == "GRAY" and p.suggestion == "unsure" and p.guard_rails == ("GR-008",)
     with_mbi = [r.model_copy(update={"mbi": "9AF0AF0AF01"}) for r in (crm, enr)]
     p = pair(with_mbi, crm.record_id, enr.record_id, ids)
     assert (p.decision == "AUTO_MATCH") is ids  # MBI counts only when shared ids are on
@@ -161,7 +165,7 @@ def test_joshua_carter_who_moved_is_not_ambiguous_with_himself(ids: bool) -> Non
     recs = [old, new, stale, enr]
     p = pair(recs, old.record_id, new.record_id, ids)
     assert "GR-004" not in p.guard_rails and p.decision == "AUTO_MATCH"
-    q = pair(recs, new.record_id, stale.record_id, ids)  # stale copy: tied to old by street
+    q = pair(recs, new.record_id, stale.record_id, ids)  # stale copy: tied to old by phone
     assert "GR-004" not in q.guard_rails
 
 

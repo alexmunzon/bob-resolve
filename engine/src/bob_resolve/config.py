@@ -96,8 +96,8 @@ SOURCE_AUTHORITY: Final[dict[str, int]] = {"enrollment": 0, "crm": 1}
 # DOB or MBI, the field is left empty and the person goes to review with IDENTITY_CONFLICT.
 AUTHORITATIVE_SOURCES: Final[frozenset[str]] = frozenset({"enrollment"})
 # Every record pair inside one cluster is re-checked (nickname chains are not transitive). A pair
-# at any of these comparison levels conflicts: the cluster is split at its weakest auto-match
-# links and the pairs go to review with CLUSTER_CONFLICT. Never resolved by picking.
+# at any of these comparison levels conflicts: every auto-match link on any path between them is
+# held and the pairs go to review with CLUSTER_CONFLICT. Never resolved by picking.
 CLUSTER_CONFLICT_LEVELS: Final[dict[str, frozenset[str]]] = {
     "first": frozenset({"far"}),
     "suffix": frozenset({"different"}),
@@ -167,7 +167,17 @@ INDEPENDENT_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
     "street": frozenset({"same"}),
     "policy": frozenset({"same"}),
 }
+# PR 21b (GR-008): a street is household context. A home or care facility is shared by many
+# people, so street stays independent evidence (GR-006, GR-007) but is not person evidence:
+# name and DOB plus a shared street and no person evidence never auto-matches.
+HOUSEHOLD_CONTEXT_FIELDS: Final[frozenset[str]] = frozenset({"street"})
+PERSON_EVIDENCE_LEVELS: Final[dict[str, frozenset[str]]] = {
+    f: levels
+    for f, levels in INDEPENDENT_EVIDENCE_LEVELS.items()
+    if f not in HOUSEHOLD_CONTEXT_FIELDS
+}
 # PR 10b (GR-004, orchestrator): a holder tied to a pair record by one of these exact fields is
 # that person's own record, so its conflicts with the pair's other own records are not ambiguity
-# (a person who moved). MBI ties only when shared ids are on.
-OWN_RECORD_TIE_FIELDS: Final[tuple[str, ...]] = ("mbi", "phone", "email", "address_line1")
+# (a person who moved). MBI ties only when shared ids are on. PR 21c: a shared street no longer
+# ties (household context), and a differing MBI (ids on) is never excused by any tie.
+OWN_RECORD_TIE_FIELDS: Final[tuple[str, ...]] = ("mbi", "phone", "email")

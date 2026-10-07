@@ -20,6 +20,7 @@ from typing import Any, Literal
 import polars as pl
 
 from bob_resolve import __version__
+from bob_resolve.benchmark import write_benchmark
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.cluster import components
 from bob_resolve.config import (
@@ -37,7 +38,7 @@ from bob_resolve.config import (
 from bob_resolve.golden import GOLDEN_FIELDS, Resolution, resolve
 from bob_resolve.golden.data import load_people
 from bob_resolve.load import PersonRecord, read_enrollment
-from bob_resolve.load.commons import HELD_OUT_LABEL, ensure_multi_a_b
+from bob_resolve.load.commons import TWO_AGENCY_LABEL, ensure_multi_a_b
 from bob_resolve.mergelog import append_entries
 from bob_resolve.normalize.record import normalize_record
 from bob_resolve.queue import (
@@ -59,7 +60,7 @@ SIDE_LABEL = {
     "snapshot": "snapshot",
     "derived": "derived from the answer key",
     "hard-cases": "hand-written hard cases",
-    "multi-a-b": HELD_OUT_LABEL,
+    "multi-a-b": TWO_AGENCY_LABEL,
 }
 
 
@@ -265,6 +266,15 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
             "llm": {"mode": RUN_LLM_MODE, "calls": 0},
         },
         "guard_rail_hits": c["scores"].guard_rail_hits,
+        # suggested_same_person comes from the engine's scores before any review, so a pair a
+        # reviewer later confirms is also in human_confirmed_merges. Never add the two together.
+        "resolution": {
+            "true_pairs": len(key.pairs),
+            "found_automatically": c["scores"].auto_match_true,
+            "suggested_same_person": c["scores"].gray_same_person_true,
+            "human_confirmed_merges": tiers["review"],
+            "awaiting_review": len(queue),
+        },
         "review_queue": {
             "size": len(queue),
             "by_severity": {s: sum(i.severity == s for i in queue) for s in ("high", "medium")},
@@ -276,10 +286,17 @@ def scorecard(o: RunOptions, key: AnswerKey, c: dict[str, Any]) -> dict[str, Any
 def held_out_report(
     t: MultiTruth, res: Resolution, scored: list[ScoredPair], missed: tuple[tuple[str, str], ...]
 ) -> dict[str, Any]:
-    """PR 10 additions for the held-out world. A commons pair is "found" as in recall after
-    review (merged, or gray with "same person"); "one_person" means the final golden record
-    holds both. A must-not-merge pair is "merged" when one golden person holds any record of
-    each of the two true people (their enrollment rows included, not only the two clients)."""
+    """PR 10 additions for the seen two-agency world, with PR 18's honest recall names.
+
+    Each commons pair block counts the same way as the main scorecard's resolution block:
+    "found_automatically" pairs were merged by the engine on its own (an auto-match kept after
+    cluster splits; a reviewer's merge does not count), and "automatic_recall" is their share.
+    "suggested_same_person" pairs were not merged automatically but sit in review marked "same
+    person"; "recall_if_suggestions_confirmed" is the hypothetical share if a person confirmed
+    every one of them. "one_person" means the final golden record holds both records.
+
+    A must-not-merge pair is "merged" when one golden person holds any record of each of the
+    two true people (their enrollment rows included, not only the two clients)."""
     person = {r: p.person_id for p in res.people for r in p.record_ids}
     golden_of: dict[str, set[str]] = defaultdict(set)  # true person to their golden people
     for rec, true_person in t.key.person_of.items():
@@ -287,13 +304,21 @@ def held_out_report(
     gray_same = {
         (p.a, p.b) for p in scored if p.decision == "GRAY" and p.suggestion == "same_person"
     }
+    kept = {(e.a, e.b) for e in res.log if e.action == "merge"}  # as in evaluate_scores
+    auto = {(p.a, p.b) for p in scored if p.decision == "AUTO_MATCH"} & kept
     lost = set(missed)
 
+    def rate(n: int, pairs: list[tuple[str, str]]) -> float:
+        return round(n / len(pairs), 6) if pairs else 1.0
+
     def recall(pairs: list[tuple[str, str]]) -> dict[str, Any]:
-        found = [x for x in pairs if x not in lost]
+        found = sum(x not in lost for x in pairs)
+        by_rules = sum(x in auto for x in pairs)
         one = [x for x in pairs if person.get(x[0], x[0]) == person.get(x[1], x[1])]
-        return {"pairs": len(pairs), "found": len(found), "one_person": len(one),
-                "recall": round(len(found) / len(pairs), 6) if pairs else 1.0,
+        return {"pairs": len(pairs), "found_automatically": by_rules,
+                "automatic_recall": rate(by_rules, pairs),
+                "suggested_same_person": found - by_rules,
+                "recall_if_suggestions_confirmed": rate(found, pairs), "one_person": len(one),
                 "missed_examples": [list(x) for x in sorted(lost & set(pairs))[:3]]}  # fmt: skip
 
     by_type: dict[str, list[tuple[str, str]]] = defaultdict(list)
@@ -310,7 +335,7 @@ def held_out_report(
             row["merged_examples"] = sorted([*row["merged_examples"], [m.a, m.b]])[:3]
         row["suggested_same_person"] += tuple(sorted((m.a, m.b))) in gray_same
     return {
-        "label": HELD_OUT_LABEL,
+        "label": TWO_AGENCY_LABEL,
         "commons_pairs": recall(sorted(t.commons_pairs)),
         "recall_by_injector": {d: recall(sorted(ps)) for d, ps in sorted(by_type.items())},
         "must_not_merge": dict(sorted(mnm.items())),
@@ -338,13 +363,36 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     final = [p.model_copy(update={"decision": "AUTO_MATCH"}) if (p.a, p.b) in forced else p
              for p in scored]  # fmt: skip
     res = resolve(records, final, recency, run_id=o.run_id, clock=lambda: o.now,
-                  review_pairs=forced)  # fmt: skip
+                  review_pairs=forced, shared_ids=o.shared_ids)  # fmt: skip
     lap("cluster_and_golden")
     skip = {d.item_id for d in parent.decisions} if parent else set()
     by_id = {r.record_id: r for r in records}
     owners = active_policy_owners(files, o.as_of)
     queue = build_queue(res, scored, by_id, {r.record_id: r for r in norm},
-                        owners, o.shared_ids, skip)  # fmt: skip
+                        owners, o.shared_ids)  # fmt: skip
+    if parent:
+        items = {item.item_id: item for item in queue}
+        for decision in parent.decisions:
+            item = items.get(decision.item_id)
+            if decision.decision == "different_people" and item is None:
+                raise RunRefused(
+                    f"Cannot reconstruct different_people constraint for {decision.item_id}."
+                )
+            if (
+                decision.decision == "different_people"
+                and item is not None
+                and item.already_one_person
+            ):
+                raise RunRefused(
+                    f"Contradictory different_people decision for {decision.item_id}; "
+                    "the records would remain in one person."
+                )
+    # Stored labels cannot resolve an authoritative field conflict or a cluster split.
+    queue = [
+        item
+        for item in queue
+        if item.item_id not in skip or item.kind in {"identity_conflict", "cluster_conflict"}
+    ]
     lap("review_queue")
     multi: MultiTruth | None = None
     if o.side == "hard-cases":
@@ -387,6 +435,7 @@ def compute(o: RunOptions, parent: Parent | None) -> dict[str, Any]:
     lap("scorecard")
     c["scorecard"] = scorecard(o, key, c)
     if multi is not None:
+        # Historical key name: this two-agency world is seen, not held out (PR 19).
         c["scorecard"]["held_out"] = held_out_report(multi, res, scored, c["scores"].missed)
     c["timings"] = None if o.frozen_clock else timings
     return c
@@ -458,12 +507,19 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
         },
         d / "manifest.json",
     )
+    write_benchmark([d], d / "benchmark.json")
+    manifest = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+    manifest["outputs"]["benchmark.json"] = sha256(d / "benchmark.json")
+    _json(manifest, d / "manifest.json")
 
 
 def execute(o: RunOptions, parent: Parent | None = None) -> Path:
     """Write into a temp folder, then rename into place, so a failed run leaves nothing behind
     and --overwrite keeps the old run until the new one is complete."""
     final = o.out / o.run_id
+    target, fixtures = final.resolve(), o.fixtures.resolve()
+    if target == fixtures or target in fixtures.parents or fixtures in target.parents:
+        raise RunRefused("run output overlaps input fixtures; choose a separate output folder")
     if not o.mask_mbi and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
         raise RunRefused(f"{o.out} is a public folder; pass --mask-mbi so no full MBI lands there.")
     if final.exists() and not o.overwrite:
@@ -530,9 +586,10 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     )
     earlier = old / "decisions.jsonl"
     carried = tuple(read_decisions(earlier)) if earlier.exists() else ()
+    active_labels = tuple({d.item_id: d for d in (*carried, *labels)}.values())
     kept_before = frozenset((a, b) for a, b in m.get("review_pairs", []))
     parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(),
-                    (*carried, *labels), kept_before | new, new)  # fmt: skip
+                    active_labels, kept_before | new, new)  # fmt: skip
     side: RunSide = m["args"]["enrollment"]
     opts = RunOptions(o.fixtures, side, m["args"]["shared_ids"], o.out, o.run_id,
                       date.fromisoformat(m["as_of"]), o.now, o.frozen_clock, o.overwrite,

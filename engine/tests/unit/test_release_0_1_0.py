@@ -86,20 +86,23 @@ def test_f5_review_apply_refuses_to_replace_its_own_parent(tmp_path: Path) -> No
 
 def test_f6_decisions_applied_counts_only_kept_merges(tmp_path: Path) -> None:
     r1 = run(tmp_path, "r1")
-    # Nina's pair is kept. HC-007 and HC-008 have birth dates far apart, so the cluster check
-    # cuts that merge again and it comes back to the queue.
+    # PR 21a: HC-007 and HC-008 have birth dates far apart, so they conflict, and HC-007 also
+    # conflicts with enrollment:8. Both reviewed links lie on the path between those records, so
+    # both are held for review again: neither counts as applied and neither is logged as a merge.
     kept = item_for(r1, "crm:HC-008", "enrollment:8")
     cut = item_for(r1, "crm:HC-007", "crm:HC-008")
     code, out = apply(r1, decisions(tmp_path / "d.jsonl", kept, cut), tmp_path, "r2")
     assert code == 0, out
-    assert "1 decisions applied" in out and "1 cut by the cluster check" in out
+    assert "0 decisions applied" in out and "2 cut by the cluster check" in out
     m = json.loads((tmp_path / "r2/manifest.json").read_text())
-    assert m["decisions_applied"] == 1
-    assert m["decisions_cut"] == [["crm:HC-007", "crm:HC-008"]]
+    assert m["decisions_applied"] == 0
+    assert m["decisions_cut"] == [["crm:HC-007", "crm:HC-008"], ["crm:HC-008", "enrollment:8"]]
     log = (tmp_path / "r2/merge_log.jsonl").read_text().splitlines()
-    review_merges = [json.loads(x) for x in log if '"tier": "review"' in x]
-    assert [(e["a"], e["b"]) for e in review_merges if e["action"] == "merge"] == [
-        ("crm:HC-008", "enrollment:8")
+    review_lines = [json.loads(x) for x in log if '"tier": "review"' in x]
+    assert [e for e in review_lines if e["action"] == "merge"] == []
+    assert sorted((e["a"], e["b"]) for e in review_lines if e["action"] == "split") == [
+        ("crm:HC-007", "crm:HC-008"),
+        ("crm:HC-008", "enrollment:8"),
     ]
 
 
