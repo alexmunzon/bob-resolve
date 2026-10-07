@@ -40,7 +40,7 @@ export function HouseholdGraph({ household }: { household: ClusterView["househol
         })}
         {[{ ...nodes[center], ...me }, ...others.map((n, i) => ({ ...n, ...at(i) }))].map((n) => (
           <g key={n.id}>
-            <circle cx={n.x} cy={n.y} r={10} className={n.current ? "fill-[var(--accent)]" : "fill-[var(--muted)]"} />
+            <circle cx={n.x} cy={n.y} r={10} className={n.current ? "fill-[var(--accent)] stroke-[var(--line)]" : "fill-[var(--muted)]"} />
             <text x={n.current ? n.x : n.x + 16} y={n.current ? n.y + 26 : n.y + 4} textAnchor={n.current ? "middle" : "start"} className="fill-current text-[13px]">
               {n.label}
             </text>

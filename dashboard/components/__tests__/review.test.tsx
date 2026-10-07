@@ -26,6 +26,13 @@ describe("Review queue", () => {
       const note = within(card).queryByText(/Already joined through other accepted links/);
       if (item.alreadyOnePerson) {
         expect(note).toHaveTextContent("This direct pair is still awaiting review");
+        expect(note).toBeVisible();
+        const evidenceSummary = within(card).getByText("Compare records and matching evidence");
+        fireEvent.click(evidenceSummary);
+        expect(evidenceSummary.closest("details")).not.toHaveAttribute("open");
+        expect(note).toBeVisible();
+        expect(note?.closest("details")).toBeNull();
+        fireEvent.click(evidenceSummary);
       } else {
         expect(note).toBeNull();
       }

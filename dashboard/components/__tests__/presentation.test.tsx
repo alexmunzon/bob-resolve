@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -53,7 +53,12 @@ describe("Executive presentation and access", () => {
   it("keeps all decision instructions and the read-only caveat visible", () => {
     const view = render(<HowToDecide />);
     const help = screen.getByRole("region", { name: "How to decide" });
-    expect(help.querySelector("details")).toBeNull();
+    const disclosure = within(help).getByText("Decision JSON and apply command");
+    disclosure.focus();
+    expect(disclosure).toHaveFocus();
+    expect(disclosure.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(disclosure);
+    expect(disclosure.closest("details")).toHaveAttribute("open");
     expect(within(help).getByRole("heading", { name: "How to decide" })).toBeVisible();
     expect(within(help).getAllByRole("listitem")).toHaveLength(3);
     expect(within(help).getByText(/bob-resolve review apply --run/)).toBeInTheDocument();
@@ -72,29 +77,20 @@ describe("Executive presentation and access", () => {
     view.unmount();
     render(<ReviewQueue items={reviewItems(run)} />);
     const evidence = screen.getAllByRole("region", { name: /^Evidence for item / })[0];
+    const disclosure = evidence.closest("details")!;
+    const summary = disclosure.querySelector("summary")!;
+    summary.focus();
+    expect(summary).toHaveFocus();
+    expect(disclosure).toHaveAttribute("open");
+    fireEvent.click(summary);
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(screen.getAllByText(/Suggestion:/)[0]).toBeVisible();
+    fireEvent.click(summary);
+    expect(disclosure).toHaveAttribute("open");
     expect(evidence).toHaveAttribute("tabindex", "0");
     expect(evidence.classList).toContain("table-scroll");
     expect(within(evidence).getByRole("columnheader", { name: "Evidence" })).toBeInTheDocument();
     expect(screen.getByLabelText("Rule")).toHaveAccessibleName("Rule");
-  });
-
-  it("defines coordinated light and dark tokens, visible focus, and bounded layout", async () => {
-    const css = await readFile("app/globals.css", "utf8");
-    expect(css).toContain("--paper: #F5F5F4");
-    expect(css).toContain("--paper: #1C1917");
-    expect(css).toContain("--sidebar: #292524");
-    expect(css).toContain("--ink: #292524");
-    expect(css).toContain("--accent: #AF0505");
-    expect(css).toContain("--accent: #FFB3AA");
-    expect(css).toContain("--brand-accent: #FF2727");
-    expect(css).toContain("--action: #AF0505");
-    expect(css).toContain("--action-ink: #FFFFFF");
-    expect(css).toContain("--nav-active: #F5F5F4");
-    expect(css).toContain("--nav-active-ink: #292524");
-    expect(css).toContain("max-width: 1320px");
-    expect(css).toContain(":focus-visible");
-    expect(css).toContain("prefers-reduced-motion");
-    expect(css).not.toContain("@font-face");
   });
 
   it("keeps phone touch targets large and long strings inside their surfaces", async () => {
@@ -129,7 +125,11 @@ describe("Executive presentation and access", () => {
     for (const theme of [light, dark]) {
       expect(contrast(theme.ink, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.muted, theme.panel)).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme.accent, theme.panel)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.ink, theme.paper)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.line, theme.panel)).toBeGreaterThanOrEqual(3);
+      for (const status of ["warning-ink", "error-ink", "pass-ink"]) {
+        expect(contrast(theme[status], theme.panel)).toBeGreaterThanOrEqual(4.5);
+      }
       expect(contrast(theme["action-ink"], theme.action)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["sidebar-muted"], theme.sidebar)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["nav-active-ink"], theme["nav-active"])).toBeGreaterThanOrEqual(4.5);

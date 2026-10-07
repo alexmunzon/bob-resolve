@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 export type Tone = "blocker" | "error" | "warning" | "info" | "pass";
 
 export const TONES: Record<Tone, { label: string; icon: LucideIcon; color: string; band: string }> = {
-  blocker: { label: "Blocker", icon: OctagonX, color: "text-rose-600 dark:text-rose-400", band: "bg-rose-600" },
-  error: { label: "Error", icon: TriangleAlert, color: "text-orange-600 dark:text-orange-400", band: "bg-orange-600" },
-  warning: { label: "Warning", icon: CircleAlert, color: "text-amber-600 dark:text-amber-400", band: "bg-amber-500" },
-  info: { label: "Info", icon: Info, color: "text-sky-600 dark:text-sky-400", band: "bg-sky-600" },
-  pass: { label: "Pass", icon: CircleCheck, color: "text-emerald-600 dark:text-emerald-400", band: "bg-emerald-600" },
+  blocker: { label: "Blocker", icon: OctagonX, color: "status-error", band: "" },
+  error: { label: "Error", icon: TriangleAlert, color: "status-error", band: "" },
+  warning: { label: "Warning", icon: CircleAlert, color: "status-warning", band: "" },
+  info: { label: "Info", icon: Info, color: "status-info", band: "" },
+  pass: { label: "Pass", icon: CircleCheck, color: "status-pass", band: "" },
 };
 
 export function SeverityIcon({ tone, className }: { tone: Tone; className?: string }) {
