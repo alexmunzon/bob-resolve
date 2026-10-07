@@ -12,12 +12,12 @@ export const metadata: Metadata = {
     "How many real people are in this book of business, and how sure are we? Every merge explained. Synthetic data only.",
 };
 
-// Only built pages are in the nav, so every item is a link a keyboard can reach. Changes joins
-// when its PR lands; a line under the nav says so.
+// Only delivered pages are in the nav, so every item is a link a keyboard can reach.
 const PAGES: { label: string; href: string }[] = [
   { label: "Overview", href: "/" },
   { label: "Clusters", href: "/clusters" },
   { label: "Review queue", href: "/review" },
+  { label: "Evidence workflow", href: "/workflow" },
   { label: "Benchmark", href: "/benchmark" },
 ];
 
@@ -51,11 +51,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               ))}
             </ul>
           </nav>
-          <p className="sidebar-note">The Changes page comes in a later release.</p>
+          <p className="sidebar-note">Separate synthetic identity evidence. Review decisions require human evidence.</p>
           <div className="sidebar-tools"><ThemeToggle /></div>
           <SeriesNav />
         </aside>
-        <main id="main-content" tabIndex={-1} className="app-main">{children}</main>
+        <main id="main-content" tabIndex={-1} className="app-main">
+          <aside aria-label="Review scope" className="surface mb-6 p-4 text-sm muted">
+            Synthetic identity review. A deterministic match does not confirm a person. Browser review labels are not authenticated approval; real agency data and production access remain separate gates.
+          </aside>
+          {children}
+        </main>
       </body>
     </html>
   );

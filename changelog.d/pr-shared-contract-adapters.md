@@ -1,0 +1,1 @@
+Add integration contract 1.0.0 and an offline adapter from actual Intake clean outputs to the existing Bob matching and conflict logic. Preserve ambiguous IDs, unresolved identities, and native provenance. Missing enrollment stays explicit; no benchmark truth or model calls. Include synthetic fixtures and rerun/stale-hash tests. CLI registration remains separate.

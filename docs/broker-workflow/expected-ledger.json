@@ -1,0 +1,229 @@
+{
+  "agency_id": "synthetic-demo",
+  "cases": {
+    "rq-19c565980cb7": {
+      "decision": "leave_unresolved",
+      "identity_state": "unresolved",
+      "owner": "Synthetic owner",
+      "requests": {
+        "demo-request": {
+          "accepted": null,
+          "responses": {
+            "demo-response": {
+              "actor": "Synthetic reviewer",
+              "at": "2026-10-07T12:00:00Z",
+              "event_id": "demo-response",
+              "item_id": "rq-19c565980cb7",
+              "kind": "response",
+              "provenance": {
+                "received_at": "2026-10-07T12:00:00Z",
+                "row_number": 1,
+                "sha256": "13890527def9d9c955786fd4862402d41da0f369a5ba0d1756c3adebe7e969a3",
+                "source_file": "synthetic-response.json"
+              },
+              "request_id": "demo-request",
+              "text": "Identifier remains missing"
+            }
+          },
+          "text": "Supply independently verified identifier"
+        }
+      },
+      "status": "needs_evidence"
+    },
+    "rq-1dfa08419db0": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-53529b677620": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-6215d5d03689": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-65afb5e0c725": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-6c236bea70cc": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-6eb28c0e1f8c": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-9129130c0fac": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-95a0a10329f5": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-969310537848": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-9e6792fb7cd2": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-ab04ffa48b60": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-ab11cce6eb9d": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-ac0eb9b934c9": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-d849421bfe0c": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-e5b731ea8639": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-ef91d7428338": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-f53831e05437": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    },
+    "rq-fb73fc9ceb4f": {
+      "decision": null,
+      "identity_state": "unresolved",
+      "owner": null,
+      "requests": {},
+      "status": "open"
+    }
+  },
+  "data_kind": "synthetic",
+  "history": [
+    {
+      "base_hash": "6107c3792d1645d0b42b26f933dfb56c5843a8906df646931edb4ba537880c3b",
+      "event": {
+        "actor": "Synthetic reviewer",
+        "at": "2026-10-07T12:00:00Z",
+        "event_id": "demo-assign",
+        "item_id": "rq-19c565980cb7",
+        "kind": "assign",
+        "text": "Synthetic owner"
+      },
+      "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+      "run_id": "demo-run"
+    },
+    {
+      "base_hash": "6107c3792d1645d0b42b26f933dfb56c5843a8906df646931edb4ba537880c3b",
+      "event": {
+        "actor": "Synthetic reviewer",
+        "at": "2026-10-07T12:00:00Z",
+        "event_id": "demo-request",
+        "item_id": "rq-19c565980cb7",
+        "kind": "request",
+        "text": "Supply independently verified identifier"
+      },
+      "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+      "run_id": "demo-run"
+    },
+    {
+      "base_hash": "6107c3792d1645d0b42b26f933dfb56c5843a8906df646931edb4ba537880c3b",
+      "event": {
+        "actor": "Synthetic reviewer",
+        "at": "2026-10-07T12:00:00Z",
+        "event_id": "demo-response",
+        "item_id": "rq-19c565980cb7",
+        "kind": "response",
+        "provenance": {
+          "received_at": "2026-10-07T12:00:00Z",
+          "row_number": 1,
+          "sha256": "13890527def9d9c955786fd4862402d41da0f369a5ba0d1756c3adebe7e969a3",
+          "source_file": "synthetic-response.json"
+        },
+        "request_id": "demo-request",
+        "text": "Identifier remains missing"
+      },
+      "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+      "run_id": "demo-run"
+    },
+    {
+      "base_hash": "6107c3792d1645d0b42b26f933dfb56c5843a8906df646931edb4ba537880c3b",
+      "event": {
+        "actor": "Synthetic reviewer",
+        "at": "2026-10-07T12:00:00Z",
+        "decision": "leave_unresolved",
+        "event_id": "demo-decision",
+        "item_id": "rq-19c565980cb7",
+        "kind": "decision",
+        "text": "Keep unresolved pending identifier"
+      },
+      "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+      "run_id": "demo-run"
+    }
+  ],
+  "identity_changes_applied": 0,
+  "intake_run_id": "synthetic-fixture",
+  "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+  "reviewer_authentication": "unauthenticated",
+  "run_id": "workflow-demo",
+  "schema_version": "1.0.0"
+}

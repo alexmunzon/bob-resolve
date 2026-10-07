@@ -1,0 +1,6 @@
+.broker-workflow label { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.broker-workflow input, .broker-workflow select, .broker-workflow textarea { width: 100%; max-width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+.broker-workflow button { min-height: 44px; align-self: flex-start; padding: 10px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.broker-workflow button:disabled { opacity: .5; cursor: default; }
+.broker-workflow form, .broker-workflow article { padding: 20px; border: 1px solid var(--line); border-radius: 8px; }
+.broker-workflow code { overflow-wrap: anywhere; }

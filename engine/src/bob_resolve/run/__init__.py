@@ -96,6 +96,7 @@ class Parent:
     decisions: tuple[ReviewDecision, ...]
     forced: frozenset[tuple[str, str]] = field(default_factory=frozenset)
     new: frozenset[tuple[str, str]] = field(default_factory=frozenset)  # this apply's pairs
+    workflow: bytes | None = None  # append-only evidence history, separate from labels
 
 
 def input_files(fixtures: Path, side: RunSide) -> dict[str, Path]:
@@ -483,6 +484,8 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
         (d / "decisions.jsonl").write_text(
             "".join(x.model_dump_json() + "\n" for x in parent.decisions), encoding="utf-8"
         )
+    if parent and parent.workflow is not None:
+        (d / "broker_workflow.json").write_bytes(parent.workflow)
     _json(c["scorecard"], d / "scorecard.json")
     if o.llm_mode != "off":
         (d / "llm_assessments.jsonl").write_text(
@@ -534,12 +537,14 @@ def write_folder(o: RunOptions, c: dict[str, Any], d: Path, parent: Parent | Non
 
 
 def execute(o: RunOptions, parent: Parent | None = None) -> Path:
-    """Write into a temp folder, then rename into place, so a failed run leaves nothing behind
-    and --overwrite keeps the old run until the new one is complete."""
+    """Publish a completed temp folder; restore the old run if replacement fails.
+    If restoration also fails, keep the backup for recovery."""
     final = o.out / o.run_id
     target, fixtures = final.resolve(), o.fixtures.resolve()
     if target == fixtures or target in fixtures.parents or fixtures in target.parents:
         raise RunRefused("run output overlaps input fixtures; choose a separate output folder")
+    if parent and parent.workflow is not None and PUBLIC_FOLDER_NAMES & set(target.parts):
+        raise RunRefused("Private broker workflow evidence cannot be copied into a public run.")
     if not o.mask_mbi and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
         raise RunRefused(f"{o.out} is a public folder; pass --mask-mbi so no full MBI lands there.")
     if o.llm_mode != "off" and PUBLIC_FOLDER_NAMES & set(o.out.resolve().parts):
@@ -560,11 +565,17 @@ def execute(o: RunOptions, parent: Parent | None = None) -> Path:
         write_folder(o, c, tmp, parent)
         if final.exists():
             final.rename(old)
-        tmp.rename(final)
+            try:
+                tmp.rename(final)
+            except BaseException:
+                old.rename(final)
+                raise
+            shutil.rmtree(old)
+        else:
+            tmp.rename(final)
     finally:
-        for leftover in (tmp, old):
-            if leftover.exists():
-                shutil.rmtree(leftover)
+        if tmp.exists():
+            shutil.rmtree(tmp)
     return final
 
 
@@ -614,7 +625,9 @@ def apply_review(old: Path, decisions: Path, o: RunOptions) -> tuple[Path, int, 
     active_labels = tuple({d.item_id: d for d in (*carried, *labels)}.values())
     kept_before = frozenset((a, b) for a, b in m.get("review_pairs", []))
     parent = Parent(m["run_id"], (old / "merge_log.jsonl").read_bytes(),
-                    active_labels, kept_before | new, new)  # fmt: skip
+                    active_labels, kept_before | new, new,
+                    (old / "broker_workflow.json").read_bytes()
+                    if "broker_workflow.json" in m["outputs"] else None)  # fmt: skip
     side: RunSide = m["args"]["enrollment"]
     # Carry the old run's saved-explanation mode; anything but replay is treated as off.
     llm_mode: LlmMode = "replay" if m.get("modes", {}).get("llm") == "replay" else "off"
