@@ -12,6 +12,7 @@ from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
 from bob_resolve.cluster import split_on_conflict
 from bob_resolve.config import DEFAULT_AS_OF, SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
+from bob_resolve.llm.replay import LlmMode
 from bob_resolve.run import RunOptions, RunRefused, RunSide, apply_review, execute
 from bob_resolve.score import evaluate_scores, score_candidates
 from bob_resolve.truth.derive import derive_clean_enrollment
@@ -158,8 +159,18 @@ def run_command(
     parquet: Parquet = True,
     mask_mbi: MaskMbi = False,
     fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+    llm_mode: Annotated[
+        LlmMode,
+        typer.Option(
+            help="Saved explanations replayed offline from disk: off or replay. No model calls."
+        ),
+    ] = "off",
+    llm_cassettes: Annotated[
+        Path, typer.Option(help="Folder of saved explanations, read only in replay mode")
+    ] = Path("cassettes/llm"),
 ) -> None:
-    """Resolve one fixture side end to end and write an immutable run folder. Jev and LLM off."""
+    """Resolve one fixture side and write an immutable run folder. Jev off. Saved explanations off
+    unless --llm-mode replay, which only reads saved files and never changes a match decision."""
     if (world == "multi-a-b") == (enrollment is not None):
         typer.echo("Pass --enrollment for --world agency-a, and no --enrollment for multi-a-b.")
         raise typer.Exit(2)
@@ -167,7 +178,7 @@ def run_command(
     t, frozen = _now(now)
     opts = RunOptions(
         fixtures.resolve(), side, shared_ids, out, run_id, as_of.date(), t, frozen,
-        overwrite, parquet, mask_mbi,
+        overwrite, parquet, mask_mbi, llm_mode, llm_cassettes,
     )  # fmt: skip
     try:
         folder = execute(opts)
@@ -180,6 +191,12 @@ def run_command(
     typer.echo(f"review queue: {sc['review_queue']}")
     for name, m in sc["metrics"].items():
         typer.echo(f"{name}: {m['value']:.4f} (target {m['target']})")
+    if llm_mode != "off":
+        llm = json.loads((folder / "manifest.json").read_text())["llm"]
+        typer.echo(
+            f"saved explanations replayed offline: {llm['replayed']} found, {llm['pending']} "
+            f"missing, {llm['invalid']} invalid. No model was called. Advisory only."
+        )
     typer.echo("measured on synthetic data")
 
 
@@ -197,12 +214,17 @@ def review_apply(
     now: Now = None,
     parquet: Parquet = True,
     fixtures: Annotated[Path, typer.Option(help="Repo fixtures folder")] = FIXTURES,
+    llm_cassettes: Annotated[
+        Path, typer.Option(help="Folder of saved explanations, if the old run replayed them")
+    ] = Path("cassettes/llm"),
 ) -> None:
-    """Write a new run with the decisions applied; the merge log only gains new lines."""
+    """Write a new run with the decisions applied; the merge log only gains new lines.
+    The old run's saved-explanation mode (off or replay) carries over."""
     t, frozen = _now(now)
     opts = RunOptions(
-        fixtures.resolve(), "snapshot", True, out, run_id, date.min, t, frozen, overwrite, parquet
-    )
+        fixtures.resolve(), "snapshot", True, out, run_id, date.min, t, frozen, overwrite, parquet,
+        llm_cassettes=llm_cassettes,
+    )  # fmt: skip
     try:
         folder, applied, cut, stored = apply_review(run, decisions, opts)
     except (RunRefused, ValueError) as e:
