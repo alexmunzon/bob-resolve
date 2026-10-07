@@ -28,9 +28,9 @@ live_blocked. Every mode reports zero calls and zero cost. No network, file, env
 credential access exists. Origin is explicitly hand_written_synthetic_fixture; actual provider
 recordings need a future versioned provenance contract, not a relabeled fixture.
 
-Session 7 owns CLI/navigation registration and integration with Session 1's artifact IDs.
-Use the local hashes as adapters to those IDs once the shared contract lands. The new module
-is not registered into the production run pipeline in this change.
+The optional `advisory sidecar` CLI connects this contract to native integration resolutions.
+It is not registered into the deterministic production run pipeline or dashboard navigation.
+See `docs/offline-advisory-sidecar.md` for its offline commands and evidence binding.
 
 Live validation remains unperformed. Alex must approve the exact provider/model and a specific
 USD spending limit and authorize each live session. Credentials must be securely configured
