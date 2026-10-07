@@ -128,3 +128,22 @@ it("keeps the first loaded context when a previous file read completes later", a
   expect(screen.getByText(/Run: parent\./)).toBeVisible();
   expect(screen.getByLabelText("Load CLI context")).toBeDisabled();
 });
+
+it("discloses technical integrity metadata while keeping the unresolved state and source IDs visible", () => {
+  render(<BrokerWorkflow />);
+  paste(context);
+  const summary = screen.getByText("Queue integrity reference");
+  const details = summary.closest("details")!;
+  expect(details).not.toHaveAttribute("open");
+  summary.focus();
+  expect(summary).toHaveFocus();
+  expect(screen.getByText(/Identity: unresolved/)).toBeVisible();
+  expect(screen.getByText(/Source record IDs:/)).toBeVisible();
+  expect(screen.getByLabelText("Load CLI context")).toBeDisabled();
+  fireEvent.click(summary);
+  expect(details).toHaveAttribute("open");
+  expect(screen.getByText(/Queue SHA-256:/)).toHaveTextContent(context.queue_sha256);
+  fireEvent.click(summary);
+  expect(details).not.toHaveAttribute("open");
+  expect(screen.getByText(/Identity: unresolved/)).toBeVisible();
+});

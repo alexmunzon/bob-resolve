@@ -1,6 +1,13 @@
 .broker-workflow label { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .broker-workflow input, .broker-workflow select, .broker-workflow textarea { width: 100%; max-width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
 .broker-workflow button { min-height: 44px; align-self: flex-start; padding: 10px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
-.broker-workflow button:disabled { opacity: .5; cursor: default; }
-.broker-workflow form, .broker-workflow article { padding: 20px; border: 1px solid var(--line); border-radius: 8px; }
+.broker-workflow button:disabled { background: var(--panel); color: var(--muted); cursor: default; }
+.broker-workflow form, .broker-workflow article { padding: 20px; background: var(--panel); border-radius: 8px; }
 .broker-workflow code { overflow-wrap: anywhere; }
+
+.broker-workflow button:hover:not(:disabled) { background: var(--paper); }
+.broker-workflow button[type="submit"]:not(:disabled) { background: var(--action); color: var(--action-ink); }
+.broker-workflow button[type="submit"]:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.broker-workflow input:disabled { background: var(--panel); color: var(--muted); opacity: 1; }
+.workflow-notice { display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.workflow-notice svg { flex-shrink: 0; margin-top: 2px; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleDashed, CircleX, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleX, type LucideIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { SeverityBadge } from "@/components/severity-badge";
@@ -15,9 +15,9 @@ const PAGE_SIZE = 25;
 
 // Color is never the only signal: every status has an icon and a word.
 const STATUS: Record<Status, { word: string; icon: LucideIcon; color: string }> = {
-  agree: { word: "Agree", icon: CircleCheck, color: "text-emerald-600 dark:text-emerald-400" },
-  disagree: { word: "Disagree", icon: CircleX, color: "text-rose-600 dark:text-rose-400" },
-  missing: { word: "Missing", icon: CircleDashed, color: "text-slate-500 dark:text-slate-400" },
+  agree: { word: "Agree", icon: CircleCheck, color: "status-pass" },
+  disagree: { word: "Disagree", icon: CircleX, color: "status-error" },
+  missing: { word: "Missing", icon: CircleDashed, color: "status-info" },
 };
 
 function StatusCell({ status, note }: { status?: Status; note?: string }) {
@@ -40,7 +40,7 @@ function Item({ item }: { item: ReviewItemView }) {
       <div className="review-item-header">
         <div className="review-item-decision">
           <span className="item-position">#{item.position}</span>
-          <SeverityBadge tone={item.severity === "high" ? "error" : "warning"} label={item.severity === "high" ? "High" : "Medium"} />
+          <SeverityBadge tone={item.severity === "high" ? "error" : "warning"} label={item.severity === "high" ? "Error: high priority" : "Review: medium priority"} />
           <span>Suggestion: <strong>{item.suggestionLabel}</strong></span>
         </div>
         <div>
@@ -50,7 +50,7 @@ function Item({ item }: { item: ReviewItemView }) {
       </div>
       {item.alreadyOnePerson && (
         <p className="already-joined">
-          Already joined through other accepted links. This direct pair is still awaiting review.
+          <CircleAlert aria-hidden size={18} />Review required: Already joined through other accepted links. This direct pair is still awaiting review.
         </p>
       )}
       <ul className="review-rules space-y-1">
@@ -58,6 +58,8 @@ function Item({ item }: { item: ReviewItemView }) {
           <li key={r.id}><strong>{r.id} {r.name}:</strong> {r.text}</li>
         ))}
       </ul>
+      <details open className="evidence-disclosure">
+        <summary>Compare records and matching evidence</summary>
       <div className="table-scroll" role="region" aria-label={`Evidence for item ${item.position}`} tabIndex={0}>
         <table className="data-table evidence-table">
           <thead>
@@ -78,6 +80,7 @@ function Item({ item }: { item: ReviewItemView }) {
           </tbody>
         </table>
       </div>
+      </details>
       <details className="decision-line">
         <summary className="cursor-pointer">Decision line for this item</summary>
         <pre tabIndex={0} className="code-sample mt-2">{item.decisionLine}</pre>

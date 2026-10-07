@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { parseDraft, workflowCases, type WorkflowDraft, type WorkflowEvent } from "@/lib/broker-workflow";
 
 export function BrokerWorkflow() {
@@ -58,7 +59,7 @@ export function BrokerWorkflow() {
     <details><summary>Paste context or draft JSON</summary><label>Workflow JSON <textarea style={{ width: "100%", minHeight: 100 }} value={pasted} onChange={e => setPasted(e.target.value)} /></label><button type="button" onClick={() => { try { importText(pasted, !currentDraft.current); } catch (e) { fail(e); } }}>Import pasted JSON</button></details>
     {draft && <>
       <p style={{ overflowWrap: "anywhere" }}>Agency: {draft.agency_id}. Intake run: {draft.intake_run_id}. Run: {draft.run_id}. {draft.history.length} saved events; {draft.events.length} draft events.</p>
-      <p style={{ overflowWrap: "anywhere" }}>Queue SHA-256: {draft.queue_sha256}</p>
+      <details className="technical-details"><summary>Queue integrity reference</summary><p style={{ overflowWrap: "anywhere" }}>Queue SHA-256: {draft.queue_sha256}</p></details>
       <label>Import draft for this context <input type="file" accept=".json" onChange={e => { void load(e.target.files?.[0], false); e.target.value = ""; }} /></label>
       <p>Draft imports must preserve all current actions in order. Reimporting the same draft keeps the existing actions; an older or changed draft is refused.</p>
       <button type="button" onClick={download}>Export draft</button>
@@ -86,6 +87,6 @@ export function BrokerWorkflow() {
       <details><summary>Bound event history and draft events</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify({ history: draft.history, events: draft.events }, null, 2)}</pre></details>
       <p>Apply the export with <code>uv run python -m bob_resolve.broker_workflow apply --run PARENT --draft FILE --out NEW_CHILD --agency-id AGENCY --intake-run-id INTAKE</code>. The CLI checks the parent and saves an immutable child. No identity changes are applied.</p>
     </>}
-    {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {error && <p role="alert" className="workflow-notice status-error"><TriangleAlert aria-hidden size={18} />Error: {error}</p>}{notice && <p role="status" className="workflow-notice status-pass"><CircleCheck aria-hidden size={18} />Confirmed: {notice}</p>}
   </section>;
 }

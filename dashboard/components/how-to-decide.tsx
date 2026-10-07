@@ -18,10 +18,11 @@ export function HowToDecide() {
           </li>
           <li>Run the command below. It writes a new run; the old run is never changed.</li>
         </ol>
-        <div className="min-w-0 space-y-2">
+        <details className="technical-details min-w-0 space-y-2">
+          <summary>Decision JSON and apply command</summary>
           <pre tabIndex={0} aria-label="Example decision JSON" className="code-sample">{EXAMPLE}</pre>
           <pre tabIndex={0} aria-label="Review apply command" className="code-sample">{COMMAND}</pre>
-        </div>
+        </details>
       </div>
       <p className="mt-3 text-xs leading-relaxed muted">
         A &quot;same person&quot; decision on a pair becomes a merge with tier &quot;Human review&quot;. Other decisions
