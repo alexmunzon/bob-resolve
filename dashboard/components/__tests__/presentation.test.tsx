@@ -80,12 +80,17 @@ describe("Executive presentation and access", () => {
 
   it("defines coordinated light and dark tokens, visible focus, and bounded layout", async () => {
     const css = await readFile("app/globals.css", "utf8");
-    expect(css).toContain("--paper: #F4F7FA");
-    expect(css).toContain("--paper: #091723");
-    expect(css).toContain("--sidebar: #102A43");
-    expect(css).toContain("--sidebar: #0C2031");
-    expect(css).toContain("--nav-active: #173D3D");
-    expect(css).toContain("--nav-active-ink: #A8E7DC");
+    expect(css).toContain("--paper: #F5F5F4");
+    expect(css).toContain("--paper: #1C1917");
+    expect(css).toContain("--sidebar: #292524");
+    expect(css).toContain("--ink: #292524");
+    expect(css).toContain("--accent: #AF0505");
+    expect(css).toContain("--accent: #FFB3AA");
+    expect(css).toContain("--brand-accent: #FF2727");
+    expect(css).toContain("--action: #AF0505");
+    expect(css).toContain("--action-ink: #FFFFFF");
+    expect(css).toContain("--nav-active: #F5F5F4");
+    expect(css).toContain("--nav-active-ink: #292524");
     expect(css).toContain("max-width: 1320px");
     expect(css).toContain(":focus-visible");
     expect(css).toContain("prefers-reduced-motion");
@@ -125,6 +130,7 @@ describe("Executive presentation and access", () => {
       expect(contrast(theme.ink, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.muted, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.accent, theme.panel)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme["action-ink"], theme.action)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["sidebar-muted"], theme.sidebar)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["nav-active-ink"], theme["nav-active"])).toBeGreaterThanOrEqual(4.5);
     }
