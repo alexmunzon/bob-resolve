@@ -1,0 +1,89 @@
+{
+  "agency_id": "synthetic-demo",
+  "base_hash": "6107c3792d1645d0b42b26f933dfb56c5843a8906df646931edb4ba537880c3b",
+  "data_kind": "synthetic",
+  "events": [],
+  "history": [],
+  "identities": {
+    "rq-19c565980cb7": [
+      "enrollment:209",
+      "enrollment:210"
+    ],
+    "rq-1dfa08419db0": [
+      "crm:C-00459",
+      "crm:C-00460"
+    ],
+    "rq-53529b677620": [
+      "crm:C-00847",
+      "enrollment:925"
+    ],
+    "rq-6215d5d03689": [
+      "enrollment:1400",
+      "enrollment:1401"
+    ],
+    "rq-65afb5e0c725": [
+      "enrollment:1073",
+      "enrollment:1074"
+    ],
+    "rq-6c236bea70cc": [
+      "enrollment:1121",
+      "enrollment:1122"
+    ],
+    "rq-6eb28c0e1f8c": [
+      "enrollment:745",
+      "enrollment:926"
+    ],
+    "rq-9129130c0fac": [
+      "enrollment:925",
+      "enrollment:926"
+    ],
+    "rq-95a0a10329f5": [
+      "crm:C-00847",
+      "crm:C-01029"
+    ],
+    "rq-969310537848": [
+      "enrollment:746",
+      "enrollment:925"
+    ],
+    "rq-9e6792fb7cd2": [
+      "crm:C-00847",
+      "enrollment:926"
+    ],
+    "rq-ab04ffa48b60": [
+      "enrollment:746",
+      "enrollment:926"
+    ],
+    "rq-ab11cce6eb9d": [
+      "crm:C-00660",
+      "crm:C-00661"
+    ],
+    "rq-ac0eb9b934c9": [
+      "enrollment:745",
+      "enrollment:925"
+    ],
+    "rq-d849421bfe0c": [
+      "crm:C-01029",
+      "enrollment:745"
+    ],
+    "rq-e5b731ea8639": [
+      "crm:C-01029",
+      "enrollment:746"
+    ],
+    "rq-ef91d7428338": [
+      "enrollment:1559",
+      "enrollment:1560"
+    ],
+    "rq-f53831e05437": [
+      "enrollment:1121",
+      "enrollment:1123"
+    ],
+    "rq-fb73fc9ceb4f": [
+      "enrollment:752",
+      "enrollment:753"
+    ]
+  },
+  "intake_run_id": "synthetic-fixture",
+  "queue_sha256": "b82c9b4a89d95ac92d0220489dde2cd6b2ad323ee4bf0ae0e12f7bc4b48b9aee",
+  "run_id": "demo-run",
+  "schema_version": "1.0.0"
+}

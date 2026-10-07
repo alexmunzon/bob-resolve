@@ -10,8 +10,10 @@ import typer
 from bob_resolve import __version__
 from bob_resolve.block import candidate_pairs, dropped_blocks, evaluate
 from bob_resolve.block.data import EnrollmentSide, load_normalized
+from bob_resolve.broker_workflow.__main__ import app as workflow_app
 from bob_resolve.cluster import split_on_conflict
 from bob_resolve.config import DEFAULT_AS_OF, SCORE_HIGH, SCORE_LOW, SHARED_IDS_DEFAULT
+from bob_resolve.integration_cli import app as integration_app
 from bob_resolve.llm.replay import LlmMode
 from bob_resolve.run import RunOptions, RunRefused, RunSide, apply_review, execute
 from bob_resolve.score import evaluate_scores, score_candidates
@@ -22,6 +24,8 @@ AgencyASide = Literal["snapshot", "derived", "hard-cases"]
 World = Literal["agency-a", "multi-a-b"]
 _AS_OF_DEFAULT = datetime.combine(DEFAULT_AS_OF, datetime.min.time())
 app = typer.Typer(help="bob-resolve. Synthetic data only.", no_args_is_help=True)
+app.add_typer(integration_app, name="integration")
+app.add_typer(workflow_app, name="workflow")
 
 
 @app.callback()

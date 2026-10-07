@@ -29,7 +29,7 @@ describe("Executive presentation and access", () => {
     expect(doc.querySelector("main")?.getAttribute("tabindex")).toBe("-1");
     expect(doc.querySelector("aside")?.classList).toContain("app-sidebar");
     expect(doc.querySelector("main")?.classList).toContain("app-main");
-    expect(doc.querySelector(".sidebar-note")?.textContent).toBe("The Changes page comes in a later release.");
+    expect(doc.querySelector(".sidebar-note")?.textContent).toBe("Separate synthetic identity evidence. Review decisions require human evidence.");
     expect(doc.querySelector(".sidebar-note")?.className).not.toMatch(/hidden/);
   });
 

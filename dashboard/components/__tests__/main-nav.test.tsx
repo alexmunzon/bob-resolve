@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,14 +20,16 @@ function nav() {
 }
 
 describe("Main nav", () => {
-  it("shows all four tabs as links", () => {
+  it("shows all five delivered tabs as links", () => {
     const links = [...nav().querySelectorAll("ul a")].map((a) => [a.textContent, a.getAttribute("href")]);
     expect(links).toEqual([
       ["Overview", "/"],
       ["Clusters", "/clusters"],
       ["Review queue", "/review"],
+      ["Evidence workflow", "/workflow"],
       ["Benchmark", "/benchmark"],
     ]);
+    expect(existsSync(resolve(import.meta.dirname, "../../app/workflow/page.tsx"))).toBe(true);
   });
 
   it("wraps the tab row on small screens instead of scrolling it sideways", () => {
