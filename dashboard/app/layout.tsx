@@ -3,7 +3,6 @@ import { ScanLine } from "lucide-react";
 
 import { NavLink } from "@/components/nav-link";
 import { SeriesNav } from "@/components/series-nav";
-import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,16 +20,9 @@ const PAGES: { label: string; href: string }[] = [
   { label: "Benchmark", href: "/benchmark" },
 ];
 
-// Runs before the first paint, so a dark page never flashes white. The saved choice wins;
-// without one (or with storage blocked) the system setting decides. Copied from plan-diff (c13d5c3).
-const THEME_SCRIPT = `(function(){var d=null;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d=t==="dark"}catch(e){}if(d===null)d=matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d)})()`;
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
+    <html lang="en" className="h-full antialiased">
       <body className="app-shell font-sans">
         <a href="#main-content" className="skip-link">Skip to content</a>
         <aside className="app-sidebar">
@@ -52,7 +44,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </ul>
           </nav>
           <p className="sidebar-note">Separate synthetic identity evidence. Review decisions require human evidence.</p>
-          <div className="sidebar-tools"><ThemeToggle /></div>
           <SeriesNav />
         </aside>
         <main id="main-content" tabIndex={-1} className="app-main">

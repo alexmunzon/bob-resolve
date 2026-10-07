@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -96,7 +97,7 @@ describe("Executive presentation and access", () => {
   it("keeps phone touch targets large and long strings inside their surfaces", async () => {
     const css = await readFile("app/globals.css", "utf8");
     const phone = css.match(/@media \(max-width: 639px\) \{([\s\S]*?)\n\}/)![1];
-    for (const control of [".nav-item", ".theme-toggle", ".filter-select", ".queue-pager a", ".series-link", ".walkthrough-link"]) {
+    for (const control of [".nav-item", ".filter-select", ".queue-pager a", ".series-link", ".walkthrough-link"]) {
       expect(phone).toMatch(new RegExp(`${control.replaceAll(".", "\\.")}[^}]*min-height: 44px`));
     }
     expect(css).toMatch(/\.page-header-copy[^}]*overflow-wrap: anywhere/);
@@ -105,14 +106,13 @@ describe("Executive presentation and access", () => {
     expect(css).not.toMatch(/body[^}]*overflow-x: hidden/);
   });
 
-  it("keeps text and semantic household edges readable in both themes", async () => {
+  it("keeps text and semantic household edges readable in the light theme", async () => {
     const css = await readFile("app/globals.css", "utf8");
     const tokens = (selector: string) => Object.fromEntries(
       [...css.match(new RegExp(`${selector} \\{([^}]+)\\}`))![1].matchAll(/--([\w-]+): (#[0-9A-F]{6})/g)]
         .map((match) => [match[1], match[2]]),
     );
     const light = tokens(":root");
-    const dark = { ...light, ...tokens("\\.dark") };
     const luminance = (hex: string) => {
       const rgb = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255)
         .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -122,7 +122,8 @@ describe("Executive presentation and access", () => {
       const pair = [luminance(a), luminance(b)].sort((x, y) => y - x);
       return (pair[0] + 0.05) / (pair[1] + 0.05);
     };
-    for (const theme of [light, dark]) {
+    expect(light).toMatchObject({ paper: "#F6F5F2", panel: "#FFFFFF", accent: "#8F202B", action: "#8F202B" });
+    for (const theme of [light]) {
       expect(contrast(theme.ink, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.muted, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.ink, theme.paper)).toBeGreaterThanOrEqual(4.5);
@@ -136,5 +137,42 @@ describe("Executive presentation and access", () => {
     }
     const graph = await readFile("components/household-graph.tsx", "utf8");
     expect(graph).toContain("stroke-[var(--muted)]");
+  });
+
+  it("always renders the light palette with no theme toggle or dark mode", async () => {
+    localStorage.setItem("theme", "dark");
+    render(<RootLayout params={Promise.resolve({})}>page</RootLayout>, { container: document.documentElement });
+    expect(screen.queryByRole("button", { name: /dark mode/i })).toBeNull();
+    expect(screen.queryByText(/dark mode/i)).toBeNull();
+    expect(document.querySelector(".theme-toggle")).toBeNull();
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
+    localStorage.removeItem("theme");
+
+    const layout = await readFile("app/layout.tsx", "utf8");
+    expect(layout).not.toMatch(/prefers-color-scheme|localStorage|matchMedia|data-theme|theme-toggle|ThemeToggle/);
+    expect(layout).not.toMatch(/classList/);
+
+    const css = await readFile("app/globals.css", "utf8");
+    expect(css).not.toMatch(/\.dark\b/);
+    expect(css).not.toMatch(/prefers-color-scheme/);
+    expect(css).not.toMatch(/@custom-variant dark/);
+    expect(css).not.toMatch(/color-scheme: dark/);
+    expect(css.match(/:root \{([^}]+)\}/)![1]).toMatch(/color-scheme: light;/);
+
+    const sources: string[] = [];
+    for (const dir of ["app", "components"]) {
+      for (const entry of await readdir(dir, { recursive: true, withFileTypes: true })) {
+        const name = join(entry.parentPath, entry.name);
+        if (entry.isFile() && /\.tsx?$/.test(entry.name) && !name.includes("__tests__")) sources.push(name);
+      }
+    }
+    expect(sources).toContain(join("app", "layout.tsx"));
+    expect(sources).not.toContain(join("components", "theme-toggle.tsx"));
+    for (const source of sources) {
+      const text = await readFile(source, "utf8");
+      expect(text, source).not.toMatch(/\bdark:/);
+      expect(text, source).not.toMatch(/localStorage/);
+    }
   });
 });
