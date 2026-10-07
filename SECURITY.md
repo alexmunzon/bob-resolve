@@ -36,18 +36,34 @@ exposed, its owner should revoke it through the provider; repository removal alo
 
 ## Known dependency risk, reviewed 2026-10-06
 
-The locked dashboard development tooling includes **braces GHSA-vfj7-8cjw-p6xm / CVE-2026-93687**.
-The [GitHub-reviewed advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), updated
-2026-10-02, lists braces `<=3.0.3` as affected and no patched release at the time of review. Deeply
-nested brace patterns can exhaust the stack and cause denial of service. npm reports five high-severity
-package nodes in this repository's full audit; they trace to this one underlying advisory.
+[braces GHSA-vfj7-8cjw-p6xm / CVE-2026-93687](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) is a
+high-severity stack-exhaustion denial of service through deeply nested brace patterns. The
+GitHub-reviewed advisory, updated 2026-10-02, affects braces `<=3.0.3` and lists **no patched
+release**.
 
-The production-only npm lockfile audit (`--omit=dev`) reported **zero findings**. That result does not
-resolve the tooling vulnerability or prove runtime safety. Avoid feeding untrusted glob/brace patterns
-to affected build/lint tooling. Revisit a supported upstream fix when available; no forced upgrade or
-unverified dependency override has been applied.
+**Status: removed, not patched upstream.** braces is no longer installed. The dashboard lockfile has no
+braces or micromatch entry, and `npm audit` reports zero findings for both the full and the
+production-only (`--omit=dev`) scope. Before the change, the full audit reported five high-severity
+package nodes, all on one lint-tooling path: `eslint-config-next` → `@next/eslint-plugin-next` →
+`fast-glob` → `micromatch` → braces. The production-only audit was already zero.
 
-The [dated review](docs/security-review-2026-10-06.md) records audit coverage and exclusions. It did not
+The lint plugin calls fast-glob in one place, and only when an ESLint config sets
+`settings.next.rootDir` (this repo does not). An npm override (`"overrides": { "fast-glob":
+"$fast-glob" }` with a `file:` development dependency) now gives the plugin a small local stand-in,
+`dashboard/vendor/fast-glob-shim`, built on Node's own `fs.globSync`. It matches fast-glob 3.3.1 on the
+recorded ordinary patterns (wildcards, `**`, character classes, plain folders, lists) and refuses brace
+or extglob patterns with a clear error instead of expanding them. `dashboard/lib/__tests__/no-braces.test.ts`
+checks the lockfile, the resolution and the pattern results. All Next lint rules still run. No package
+version changed; 15 packages were removed. The same stand-in is used in agency-intake-kit.
+
+This stand-in is our own code, not an upstream fix. Revisit it when Next or fast-glob changes: an
+`eslint-config-next` upgrade must keep the tests green, and if braces ships a fix, decide whether to
+return to upstream fast-glob. Do not run `npm audit fix --force`. The weekly advisory watch (a
+scheduled read-only workflow that fails when a patched release ships or the advisory changes) lives in
+agency-intake-kit, not in this repository.
+
+The [dated review](docs/security-review-2026-10-06.md) records audit coverage and exclusions from before
+the removal. It did not
 review hosting/account settings, runtime storage, Git history, binary fixtures, environment files, or
 unknown vulnerabilities. Keep `.env` and `.env.*` contents private and unread during repository work,
 including example templates. This demo needs no credentials or paid services.
