@@ -57,8 +57,8 @@ The lint plugin calls fast-glob in one place, and only when an ESLint config set
 "$fast-glob" }` with a `file:` development dependency) now gives the plugin a small local stand-in,
 `dashboard/vendor/fast-glob-shim`, built on Node's own `fs.globSync`. It matches fast-glob 3.3.1 on the
 recorded ordinary patterns (wildcards, `**`, character classes, plain and hidden folders, lists) and
-refuses brace or extglob patterns with a clear error instead of expanding them. Known differences: it
-does not descend into symlinked folders, and it drops a leading `./` from wildcard results. `dashboard/lib/__tests__/no-braces.test.ts`
+refuses brace or extglob patterns with a clear error instead of expanding them. Known difference: it
+skips symlinked folders, which fast-glob lists. `dashboard/lib/__tests__/no-braces.test.ts`
 checks the lockfile, the resolution and the pattern results. All Next lint rules still run. No package
 version changed; 15 packages were removed. The same stand-in is used in agency-intake-kit.
 
