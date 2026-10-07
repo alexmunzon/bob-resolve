@@ -113,6 +113,11 @@ describe("Executive presentation and access", () => {
     );
     const light = tokens(":root");
     const dark = { ...light, ...tokens("\\.dark") };
+    expect(light).toMatchObject({ paper: "#F7F3EB", panel: "#FFFDF8", ink: "#30251F", muted: "#6B5749", line: "#9A8370", accent: "#8F3D3D", action: "#8F3D3D", "action-ink": "#F7F3EB" });
+    expect(dark).toMatchObject({ paper: "#30251F", panel: "#403128", ink: "#F7F3EB", muted: "#D3C0AD", accent: "#E8B7AE" });
+    for (const theme of [light, dark]) {
+      expect(theme).toMatchObject({ sidebar: "#30251F", "sidebar-ink": "#F7F3EB", "sidebar-muted": "#D3C0AD" });
+    }
     const luminance = (hex: string) => {
       const rgb = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255)
         .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -126,14 +131,24 @@ describe("Executive presentation and access", () => {
       expect(contrast(theme.ink, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.muted, theme.panel)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme.ink, theme.paper)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.muted, theme.paper)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.accent, theme.panel)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.accent, theme.paper)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.line, theme.paper)).toBeGreaterThanOrEqual(3);
+      expect(contrast(theme["sidebar-ink"], theme.sidebar)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme["sidebar-line"], theme.sidebar)).toBeGreaterThanOrEqual(3);
       expect(contrast(theme.line, theme.panel)).toBeGreaterThanOrEqual(3);
       for (const status of ["warning-ink", "error-ink", "pass-ink"]) {
         expect(contrast(theme[status], theme.panel)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(theme[status], theme.paper)).toBeGreaterThanOrEqual(4.5);
       }
       expect(contrast(theme["action-ink"], theme.action)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["sidebar-muted"], theme.sidebar)).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["nav-active-ink"], theme["nav-active"])).toBeGreaterThanOrEqual(4.5);
     }
+    expect(css).toMatch(/:focus-visible \{[^}]*outline: 2px solid var\(--ink\);[^}]*outline-offset: 3px/);
+    expect(css).toMatch(/\.app-sidebar :focus-visible \{[^}]*outline-color: var\(--sidebar-ink\)/);
+    expect(css).toMatch(/::selection \{[^}]*background: var\(--action\);[^}]*color: var\(--action-ink\)/);
     const graph = await readFile("components/household-graph.tsx", "utf8");
     expect(graph).toContain("stroke-[var(--muted)]");
   });

@@ -4,42 +4,38 @@
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-/* Shared series tokens: neutral surfaces, one action accent, explicit status colors. */
+/* Shared warm brown series palette; evidence retains explicit status colors. */
 :root {
   color-scheme: light;
-  --paper: #F6F5F2;
-  --panel: #FFFFFF;
-  --ink: #272727;
-  --muted: #646464;
-  --line: #858585;
-  --soft: #F6F5F2;
-  --accent: #8F202B;
-  --action: #8F202B;
-  --action-ink: #FFFFFF;
-  --sidebar: #FFFFFF;
-  --sidebar-ink: #272727;
-  --sidebar-muted: #646464;
-  --sidebar-line: #858585;
-  --sidebar-hover: #F6F5F2;
-  --nav-active: #8F202B;
-  --nav-active-ink: #FFFFFF;
+  --paper: #F7F3EB;
+  --panel: #FFFDF8;
+  --ink: #30251F;
+  --muted: #6B5749;
+  /* Darkened shared tan keeps control boundaries above 3:1 on page and panel. */
+  --line: #9A8370;
+  --soft: #F7F3EB;
+  --accent: #8F3D3D;
+  --action: #8F3D3D;
+  --action-ink: #F7F3EB;
+  --sidebar: #30251F;
+  --sidebar-ink: #F7F3EB;
+  --sidebar-muted: #D3C0AD;
+  --sidebar-line: #9A8370;
+  --sidebar-hover: #403128;
+  --nav-active: #8F3D3D;
+  --nav-active-ink: #F7F3EB;
   --warning-ink: #805600;
   --error-ink: #B4233B;
   --pass-ink: #246442;
 }
 .dark {
   color-scheme: dark;
-  --paper: #191919;
-  --panel: #242424;
-  --ink: #F5F5F5;
-  --muted: #B8B8B8;
-  --line: #767676;
-  --soft: #191919;
-  --sidebar: #242424;
-  --sidebar-ink: #F5F5F5;
-  --sidebar-muted: #B8B8B8;
-  --sidebar-line: #767676;
-  --sidebar-hover: #191919;
+  --paper: #30251F;
+  --panel: #403128;
+  --ink: #F7F3EB;
+  --muted: #D3C0AD;
+  --soft: #30251F;
+  --accent: #E8B7AE;
   --warning-ink: #E8C071;
   --error-ink: #FF9DAE;
   --pass-ink: #9CD5B2;
@@ -47,7 +43,7 @@
 body { background: var(--paper); color: var(--ink); }
 button, select, summary, a { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-::selection { background: var(--accent); color: var(--action-ink); }
+::selection { background: var(--action); color: var(--action-ink); }
 .muted { color: var(--muted); }
 .text-link { color: var(--ink); font-weight: 550; text-decoration: underline; text-underline-offset: 3px; }
 .text-link:hover { text-decoration-thickness: 2px; }
