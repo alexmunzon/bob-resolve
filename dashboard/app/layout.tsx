@@ -37,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="sidebar-brand">
             <span className="brand-mark"><ScanLine aria-hidden className="size-4" /></span>
             <div>
-              <p className="brand-name">bob-resolve</p>
+              <p className="brand-name">bob-resolve <span data-version-badge className="ml-1 inline-block rounded border border-current px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-wide"><span aria-hidden="true">V2</span><span className="sr-only">Version 2</span></span></p>
               <p className="brand-caption">Identity resolution</p>
             </div>
           </div>
