@@ -45,8 +45,9 @@ export function Cluster({ view: v }: { view: ClusterView }) {
           <strong>{v.name}</strong> is {v.recordIds.length} records: {v.recordIds.join(", ")}.
         </p>
         <p className="provenance">
-          Aliases: {v.aliases.length ? v.aliases.join(", ") : "none"}. Synthetic data only; no full MBI is shown.
+          Aliases: {v.aliases.length ? v.aliases.join(", ") : "none"}.
         </p>
+        <p className="provenance">Candidate identity group. A deterministic match does not confirm a person.</p>
       </PageHeader>
 
       <Section title="Golden record">

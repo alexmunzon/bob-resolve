@@ -23,6 +23,7 @@ describe("Clusters", () => {
   it("example 2: C-02011 and C-00023 are one person, with the merge log line that joined them", async () => {
     render(<Cluster view={clusterView(await loadDemoRun(), EXAMPLE_2)!} />);
     expect(screen.getByRole("heading", { level: 1, name: "Why did these records become one person?" })).toBeInTheDocument();
+    expect(screen.getByText(/Candidate identity group. A deterministic match does not confirm a person/)).toBeVisible();
     const members = within(screen.getByRole("region", { name: "Member records side by side" }));
     expect(members.getByRole("columnheader", { name: "CRM crm:C-00023" })).toBeInTheDocument();
     expect(members.getByRole("columnheader", { name: "CRM crm:C-02011" })).toBeInTheDocument();
@@ -61,6 +62,7 @@ describe("Clusters", () => {
     const items = clusterList(run);
     const { unmount } = render(<ClusterList items={items} />);
     expect(screen.getByRole("region", { name: "Duplicate CRM clients merged into one person" })).toHaveTextContent("Jason Nolan");
+    expect(screen.getByText(/Candidate identity groups from this run/)).toHaveTextContent("A deterministic match does not confirm a person");
     expectNoMbiOrDash(document.body);
     unmount();
     for (const p of clusterPeople(run)) {

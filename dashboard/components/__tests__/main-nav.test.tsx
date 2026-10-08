@@ -51,7 +51,7 @@ describe("Agency Data Trust Series navigation", () => {
     expect(series.textContent).toContain("Separate demos, shared trust principles.");
     const links = [...series.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]);
     expect(links).toEqual([
-      ["1. Intake Kit", "https://agency-intake-kit.vercel.app"],
+      ["1. Agency Intake Kit", "https://agency-intake-kit.vercel.app"],
       ["2. Bob Resolve", "/"],
       ["3. Plan Diff", "https://plan-diff.vercel.app"],
     ]);

@@ -12,6 +12,10 @@ function expandDetails() {
   fireEvent.click(screen.getByText("Benchmark and engine details"));
 }
 
+function expandReview() {
+  fireEvent.click(screen.getByText("Review breakdown and recorded status"));
+}
+
 async function show(expand = false) {
   const { container } = render(<Overview data={overview(await loadRunDir(DEMO_RUN_DIR))} />);
   if (expand) expandDetails();
@@ -23,9 +27,17 @@ const tile = (label: string) => within(screen.getByRole("group", { name: label }
 const panel = (label: RegExp) => within(screen.getByRole("region", { name: label }));
 
 describe("Overview", () => {
-  it("keeps the demo caveat visible without expanding benchmarks", async () => {
+  it("keeps implementation and accuracy limitations beside the benchmark evidence", async () => {
     await show();
-    expect(screen.getByText(/These demo fixtures were used while building the rules/)).toHaveTextContent("not held out and do not measure accuracy on real agency files");
+    const caveat = screen.getByText(/These demo fixtures were used while building the rules/);
+    const masking = screen.getByText(/MBI used for matching, then masked for display/);
+    expect(caveat).not.toBeVisible();
+    expect(masking).not.toBeVisible();
+    expandDetails();
+    expect(caveat).toBeVisible();
+    expect(caveat).toHaveTextContent("not held out and do not measure accuracy on real agency files");
+    expect(masking).toBeVisible();
+    expect(screen.getByText(/Real agency data and production access remain separate gates/)).toBeVisible();
   });
 
   it("explains that shared identifiers were used before display masking", async () => {
@@ -72,7 +84,7 @@ describe("Overview", () => {
     expect(tile("Candidate identity groups").getByText(count(sc.people))).toBeInTheDocument();
     expect(tile("Households").getByText(count(sc.households))).toBeInTheDocument();
     expect(tile("Unidentifiable rows").getByText(String(sc.unidentifiable))).toBeInTheDocument();
-    expect(tile("Unresolved review pairs").getByText(String(sc.review_queue.size))).toBeInTheDocument();
+    expect(tile("Unresolved review pairs").getByText(String(sc.review_queue.size), { selector: ".kpi-value" })).toBeInTheDocument();
   });
 
   it("puts unresolved review and source repair before counts, with working evidence links", async () => {
@@ -83,7 +95,7 @@ describe("Overview", () => {
     expect(within(attention).getByRole("link", { name: "Compare review pairs" })).toHaveAttribute("href", "/review");
     expect(within(attention).getByText(/Ask the source owner to restore identity fields/)).toBeVisible();
     expect(screen.getByText(/A false merge is worse than a missed match/)).toBeVisible();
-    expect(screen.getByText(/This dashboard is read-only/)).toBeVisible();
+    expect(screen.getByText(/Read-only. Apply review decisions separately/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Inspect grouped source records" })).toHaveAttribute("href", "/clusters");
     const groups = [...container.querySelectorAll('[role="group"]')].map((el) => el.getAttribute("aria-label"));
     expect(groups.slice(0, 2)).toEqual(["Unresolved review pairs", "Unidentifiable rows"]);
@@ -101,7 +113,7 @@ describe("Overview", () => {
     expect(screen.getByText("Precision of auto-merges")).not.toBeVisible();
     expect(screen.getByText("Merges by tier")).not.toBeVisible();
     expect(screen.getByText("Cost and run time")).not.toBeVisible();
-    expect(screen.getByText(/These demo fixtures were used while building the rules/)).toBeVisible();
+    expect(screen.getByText(/These demo fixtures were used while building the rules/)).not.toBeVisible();
     for (let i = 0; i < 2; i++) {
       fireEvent.click(summary);
       expect(details).toHaveAttribute("open");
@@ -138,12 +150,56 @@ describe("Overview", () => {
     expect(maybe.queryByText(/target/i)).toBeNull();
   });
 
-  it("counts reviewer-confirmed merges and links the items awaiting review", async () => {
+  it("retains recorded status and source actions inside the single workload summary", async () => {
     await show();
-    const status = panel(/Review status/);
+    expect(screen.getAllByText("19").filter(node => !node.closest("details"))).toHaveLength(1);
+    expandReview();
+    const status = panel(/Recorded review status/);
     expect(status.getByText("Confirmed by a reviewer").nextSibling).toHaveTextContent("0");
     expect(status.getByRole("link", { name: "Awaiting review" })).toHaveAttribute("href", "/review");
     expect(status.getByText("19")).toBeInTheDocument();
+  });
+
+  it("keeps declared-status warnings beside recorded counts without opening benchmark details", async () => {
+    await show();
+    const review = screen.getByText("Review breakdown and recorded status").closest("details")!;
+    const benchmark = screen.getByText("Benchmark and engine details").closest("details")!;
+    expect(review).not.toHaveAttribute("open");
+    expect(benchmark).not.toHaveAttribute("open");
+    expandReview();
+    const status = screen.getByRole("region", { name: "Recorded review status" });
+    const warning = within(status).getByText(/Browser review labels are unauthenticated declarations/);
+    expect(warning).toHaveTextContent("not validated resolution evidence or approval.");
+    expect(warning).toBeVisible();
+    expect(within(status).getByText("Confirmed by a reviewer")).toBeVisible();
+    expect(warning.closest("details")).toBe(review);
+    expect(benchmark).not.toHaveAttribute("open");
+    expect(within(benchmark).queryByText(/Browser review labels/)).toBeNull();
+  });
+
+  it("keeps the consolidated review disclosure keyboard reachable and repeatable", async () => {
+    await show();
+    const summary = screen.getByText("Review breakdown and recorded status");
+    summary.focus();
+    expect(summary).toHaveFocus();
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Suggests different people")).not.toBeVisible();
+    for (let i = 0; i < 2; i++) {
+      fireEvent.click(summary);
+      expect(screen.getByText("Suggests different people")).toBeVisible();
+      fireEvent.click(summary);
+      expect(screen.getByText("Suggests different people")).not.toBeVisible();
+      expect(screen.getByRole("link", { name: "Compare review pairs" })).toBeVisible();
+    }
+  });
+
+  it("keeps recorded status distinct when its count differs from the queue summary", async () => {
+    const run = await loadRunDir(DEMO_RUN_DIR);
+    run.scorecard.resolution!.awaiting_review = 7;
+    render(<Overview data={overview(run)} />);
+    expect(tile("Unresolved review pairs").getByText("19", { selector: ".kpi-value" })).toBeVisible();
+    expandReview();
+    expect(panel(/Recorded review status/).getByText("7")).toBeVisible();
   });
 
   it("never says after review", async () => {
@@ -157,7 +213,8 @@ describe("Overview", () => {
     expandDetails();
     expect(tile("Automatic recall").getByText("Not recorded")).toBeInTheDocument();
     expect(tile("Automatic recall").queryByText("99.6%")).toBeNull();
-    const status = panel(/Review status/);
+    expandReview();
+    const status = panel(/Recorded review status/);
     expect(status.getAllByText("Not recorded")).toHaveLength(2);
   });
 
@@ -184,7 +241,8 @@ describe("Overview", () => {
 
   it("splits the review queue by severity and by suggestion, in words", async () => {
     await show();
-    const q = panel(/Review queue: 19 items/);
+    expandReview();
+    const q = panel(/Suggestions/);
     expect(q.getByText("High")).toBeInTheDocument();
     expect(q.getByText("Medium")).toBeInTheDocument();
     expect(q.getByText("Suggests same person").nextSibling).toHaveTextContent("0");

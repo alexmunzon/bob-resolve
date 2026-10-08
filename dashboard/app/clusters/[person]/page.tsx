@@ -13,7 +13,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps<"/clusters/[person]">) {
-  return { title: `${(await params).person} | Clusters | bob-resolve` };
+  return { title: `${(await params).person} | Clusters | Bob Resolve` };
 }
 
 export default async function ClusterPage({ params }: PageProps<"/clusters/[person]">) {

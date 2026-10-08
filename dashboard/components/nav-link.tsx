@@ -4,11 +4,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartNoAxesColumnIncreasing, GitMerge, LayoutDashboard, ListChecks } from "lucide-react";
+import { ChartNoAxesColumnIncreasing, ClipboardList, GitMerge, LayoutDashboard, ListChecks } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const ICONS = { "/": LayoutDashboard, "/clusters": GitMerge, "/review": ListChecks, "/benchmark": ChartNoAxesColumnIncreasing };
+const ICONS = { "/": LayoutDashboard, "/clusters": GitMerge, "/review": ListChecks, "/workflow": ClipboardList, "/benchmark": ChartNoAxesColumnIncreasing };
 
 // Only the page you are on is highlighted and announced as the current page.
 export function NavLink({ href, label }: { href: string; label: string }) {

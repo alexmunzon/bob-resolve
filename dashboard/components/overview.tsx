@@ -4,14 +4,14 @@ import { DemoWalkthrough } from "@/components/demo-walkthrough";
 import { PageHeader } from "@/components/page-header";
 import { SeverityBadge } from "@/components/severity-badge";
 import { CARD, Tile } from "@/components/tiles";
-import { count, plural } from "@/lib/format";
+import { count } from "@/lib/format";
 import type { MetricView, OverviewData, Row } from "@/lib/overview";
 import { cn } from "@/lib/utils";
 
-function Panel({ title, rows, children }: { title: string; rows: Row[]; children?: React.ReactNode }) {
+function Panel({ title, rows, children, heading: Heading = "h2" }: { title: string; rows: Row[]; children?: React.ReactNode; heading?: "h2" | "h4" }) {
   return (
     <section aria-label={title} className={cn(CARD, "summary-panel")}>
-      <h2 className="section-title">{title}</h2>
+      <Heading className="section-title">{title}</Heading>
       {children}
       <dl className="summary-rows">
         {rows.map((row) => (
@@ -52,9 +52,8 @@ export function Overview({ data: d }: { data: OverviewData }) {
           Compare the source records before deciding whether a pair is the same person. A false merge is worse than a missed match.
         </p>
         <p className="provenance tabular-nums">
-          As of {d.asOf}. Synthetic data only; no full MBI is shown.
+          As of {d.asOf}.
         </p>
-        <p className="mt-1 text-xs muted">{d.identifierContext}</p>
       </PageHeader>
       <section aria-labelledby="attention-heading" className="space-y-3">
         <h2 id="attention-heading" className="section-heading">Needs attention</h2>
@@ -64,6 +63,25 @@ export function Overview({ data: d }: { data: OverviewData }) {
             <p className="kpi-value">{count(d.queueSize)}</p>
             <p className="kpi-context">Compare each pair side by side. Read the source evidence and guard rails before making a decision.</p>
             <Link href="/review" className="walkthrough-link mt-3">Compare review pairs</Link>
+            <p className="mt-3 text-xs leading-relaxed muted">Read-only. Apply review decisions separately to a new run; leave uncertain pairs unresolved.</p>
+            <details className="technical-details mt-4">
+              <summary>Review breakdown and recorded status</summary>
+              <div className="space-y-3 pt-2">
+                <Panel heading="h4" title="Suggestions" rows={d.suggestions.map((s) => ({ ...s, label: `Suggests ${s.label.toLowerCase()}` }))}>
+                  <p className="mt-2 flex flex-wrap gap-2 text-sm tabular-nums">
+                    {d.severity.map((s) => (
+                      <span key={s.severity} className="inline-flex items-center gap-1">
+                        <SeverityBadge tone={s.severity === "high" ? "error" : "warning"} label={s.severity === "high" ? "High" : "Medium"} />
+                        {count(s.count)}
+                      </span>
+                    ))}
+                  </p>
+                </Panel>
+                <Panel heading="h4" title="Recorded review status" rows={d.reviewStatus}>
+                  <p className="mt-2 text-xs leading-relaxed muted">Browser review labels are unauthenticated declarations, not validated resolution evidence or approval.</p>
+                </Panel>
+              </div>
+            </details>
           </div>
           <div role="group" aria-label="Unidentifiable rows" className={cn(CARD, "summary-panel")}>
             <h3 className="section-title">Unidentifiable rows</h3>
@@ -72,7 +90,6 @@ export function Overview({ data: d }: { data: OverviewData }) {
             <p className="mt-3 text-sm">Ask the source owner to restore identity fields before rerunning these rows.</p>
           </div>
         </div>
-        <p className="text-xs leading-relaxed muted">This dashboard is read-only. Review decisions are applied separately to a new run; uncertain pairs should stay unresolved.</p>
       </section>
       <div className="overview-counts">
         <Tile label="Records in" value={d.recordsIn} context={`${sources}, including ${count(d.unidentifiable)} unidentifiable`} />
@@ -83,26 +100,13 @@ export function Overview({ data: d }: { data: OverviewData }) {
         <Link href="/clusters" className="text-link">Inspect grouped source records</Link> to see where each field came from and why records were combined.
       </p>
       <DemoWalkthrough />
-      <div className="grid gap-3 md:grid-cols-2">
-        <Panel title="Review status" rows={d.reviewStatus} />
-        <Panel title={`Review queue: ${plural(d.queueSize, "item")}`} rows={d.suggestions.map((s) => ({ ...s, label: `Suggests ${s.label.toLowerCase()}` }))}>
-          <p className="mt-2 flex flex-wrap gap-2 text-sm tabular-nums">
-            {d.severity.map((s) => (
-              <span key={s.severity} className="inline-flex items-center gap-1">
-                <SeverityBadge tone={s.severity === "high" ? "error" : "warning"} label={s.severity === "high" ? "High" : "Medium"} />
-                {count(s.count)}
-              </span>
-            ))}
-          </p>
-        </Panel>
-      </div>
-      <section aria-label="Demo limitations" className="space-y-2">
-        <p className="disclosure-note">
-          These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.
-        </p>
+      <section aria-label="Benchmark and limitations" className="space-y-2">
         <details className="technical-details">
           <summary>Benchmark and engine details</summary>
           <div className="space-y-4 pt-2">
+            <p className="disclosure-note">These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.</p>
+            <p className="text-xs leading-relaxed muted">{d.identifierContext}</p>
+            <p className="text-xs leading-relaxed muted">Real agency data and production access remain separate gates.</p>
             <p className="text-xs leading-relaxed muted">Run {d.runId}, engine {d.engine}. {count(d.leftSplit)} identities left split, measured on synthetic data.</p>
             <section aria-labelledby="sure-heading" className="space-y-2">
               <h2 id="sure-heading" className="section-heading">How sure are we? Measured on synthetic data</h2>

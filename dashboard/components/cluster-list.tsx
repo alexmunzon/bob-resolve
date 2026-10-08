@@ -33,7 +33,7 @@ export function ClusterList({ items }: { items: Entry[] }) {
           {count(items.length)} people are made of two or more records. Open one to see its golden record, the source
           of every field, the member records side by side, its merge log lines, and its household.
         </p>
-        <p className="provenance">Synthetic data only; no full MBI is shown.</p>
+        <p className="provenance">Candidate identity groups from this run. A deterministic match does not confirm a person.</p>
       </PageHeader>
       {groups.map((g) => (
         <section key={g.title} aria-label={g.title} className={cn(CARD, "table-panel")}>
