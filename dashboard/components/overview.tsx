@@ -47,37 +47,44 @@ export function Overview({ data: d }: { data: OverviewData }) {
   const sources = d.bySource.map((s) => `${s.label} ${s.value}`).join(", ");
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="Bob Resolve / Book of business" title="How many real people are in this book, and how sure are we?">
+      <PageHeader eyebrow="Bob Resolve / Book of business" title="Resolve identity questions with source evidence">
         <p className="page-description tabular-nums">
-          {d.recordsIn} records became <strong>{d.people} people</strong> in {d.households} households.
+          Compare the source records before deciding whether a pair is the same person. A false merge is worse than a missed match.
         </p>
         <p className="provenance tabular-nums">
-          Run {d.runId}, as of {d.asOf}, engine {d.engine}. Synthetic data only; no full MBI is shown.
+          As of {d.asOf}. Synthetic data only; no full MBI is shown.
         </p>
         <p className="mt-1 text-xs muted">{d.identifierContext}</p>
       </PageHeader>
-      <div className="metric-grid">
-        <div>
-          <Tile label="Records in" value={d.recordsIn} context={`${sources}, including ${count(d.unidentifiable)} unidentifiable`} />
+      <section aria-labelledby="attention-heading" className="space-y-3">
+        <h2 id="attention-heading" className="section-heading">Needs attention</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div role="group" aria-label="Unresolved review pairs" className={cn(CARD, "summary-panel")}>
+            <h3 className="section-title">Unresolved review pairs</h3>
+            <p className="kpi-value">{count(d.queueSize)}</p>
+            <p className="kpi-context">Compare each pair side by side. Read the source evidence and guard rails before making a decision.</p>
+            <Link href="/review" className="walkthrough-link mt-3">Compare review pairs</Link>
+          </div>
+          <div role="group" aria-label="Unidentifiable rows" className={cn(CARD, "summary-panel")}>
+            <h3 className="section-title">Unidentifiable rows</h3>
+            <p className="kpi-value">{count(d.unidentifiable)}</p>
+            <p className="kpi-context">No name, birth date, or MBI. Set aside from identity grouping.</p>
+            <p className="mt-3 text-sm">Ask the source owner to restore identity fields before rerunning these rows.</p>
+          </div>
         </div>
-        <Tile label="People out" value={d.people} context={`${count(d.leftSplit)} may still be split, see the review queue`} />
-        <Tile label="Households" value={d.households} context="Linked by the agency's own household ids" />
-        <Tile label="Unidentifiable rows" tone="warning" value={count(d.unidentifiable)} context="No name, birth date, or MBI. Set aside." />
-        <Tile label="Review queue" tone="info" value={count(d.queueSize)} context="Pairs a person should decide" />
-      </div>
-      <DemoWalkthrough />
-      <section aria-labelledby="sure-heading" className="space-y-2">
-        <h2 id="sure-heading" className="section-heading">How sure are we? Measured on synthetic data</h2>
-        <p className="disclosure-note">
-          These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.
-        </p>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {d.metrics.map((m) => <MetricCard key={m.name} m={m} />)}
-        </div>
+        <p className="text-xs leading-relaxed muted">This dashboard is read-only. Review decisions are applied separately to a new run; uncertain pairs should stay unresolved.</p>
       </section>
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="overview-counts">
+        <Tile label="Records in" value={d.recordsIn} context={`${sources}, including ${count(d.unidentifiable)} unidentifiable`} />
+        <Tile label="Candidate identity groups" value={d.people} context="Engine output, not a count of human-confirmed identities." />
+        <Tile label="Households" value={d.households} context="Linked by the agency's own household ids" />
+      </div>
+      <p className="text-sm leading-relaxed">
+        <Link href="/clusters" className="text-link">Inspect grouped source records</Link> to see where each field came from and why records were combined.
+      </p>
+      <DemoWalkthrough />
+      <div className="grid gap-3 md:grid-cols-2">
         <Panel title="Review status" rows={d.reviewStatus} />
-        <Panel title="Merges by tier" rows={d.tiers} />
         <Panel title={`Review queue: ${plural(d.queueSize, "item")}`} rows={d.suggestions.map((s) => ({ ...s, label: `Suggests ${s.label.toLowerCase()}` }))}>
           <p className="mt-2 flex flex-wrap gap-2 text-sm tabular-nums">
             {d.severity.map((s) => (
@@ -88,8 +95,28 @@ export function Overview({ data: d }: { data: OverviewData }) {
             ))}
           </p>
         </Panel>
-        <Panel title="Cost and run time" rows={[...d.usage, d.runTime]} />
       </div>
+      <section aria-label="Demo limitations" className="space-y-2">
+        <p className="disclosure-note">
+          These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.
+        </p>
+        <details className="technical-details">
+          <summary>Benchmark and engine details</summary>
+          <div className="space-y-4 pt-2">
+            <p className="text-xs leading-relaxed muted">Run {d.runId}, engine {d.engine}. {count(d.leftSplit)} identities left split, measured on synthetic data.</p>
+            <section aria-labelledby="sure-heading" className="space-y-2">
+              <h2 id="sure-heading" className="section-heading">How sure are we? Measured on synthetic data</h2>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {d.metrics.map((m) => <MetricCard key={m.name} m={m} />)}
+              </div>
+            </section>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Panel title="Merges by tier" rows={d.tiers} />
+              <Panel title="Cost and run time" rows={[...d.usage, d.runTime]} />
+            </div>
+          </div>
+        </details>
+      </section>
     </div>
   );
 }
