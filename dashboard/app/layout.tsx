@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "bob-resolve",
+  title: "Bob Resolve",
   description:
     "How many real people are in this book of business, and how sure are we? Every merge explained. Synthetic data only.",
 };
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="sidebar-brand">
             <span className="brand-mark"><ScanLine aria-hidden className="size-4" /></span>
             <div>
-              <p className="brand-name">bob-resolve <span data-version-badge className="ml-1 inline-block rounded border border-current px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-wide"><span aria-hidden="true">V2</span><span className="sr-only">Version 2</span></span></p>
+              <p className="brand-name">Bob Resolve <span data-version-badge className="ml-1 inline-block rounded border border-current px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-wide"><span aria-hidden="true">V2</span><span className="sr-only">Version 2</span></span></p>
               <p className="brand-caption">Identity resolution</p>
             </div>
           </div>
@@ -51,13 +51,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               ))}
             </ul>
           </nav>
-          <p className="sidebar-note">Separate synthetic identity evidence. Review decisions require human evidence.</p>
-          <div className="sidebar-tools"><ThemeToggle /></div>
-          <SeriesNav />
+          <div className="sidebar-footer">
+            <SeriesNav />
+            <div className="sidebar-tools"><ThemeToggle /></div>
+          </div>
         </aside>
         <main id="main-content" tabIndex={-1} className="app-main">
           <aside aria-label="Review scope" className="surface mb-6 p-4 text-sm muted">
-            Synthetic identity review. A deterministic match does not confirm a person. Browser review labels are not authenticated approval; real agency data and production access remain separate gates.
+            Synthetic demo · human review required
           </aside>
           {children}
         </main>

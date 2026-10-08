@@ -23,12 +23,16 @@ describe("Release navigation", () => {
     expect(doc.querySelector("main")?.getAttribute("tabindex")).toBe("-1");
   });
 
-  it("distinguishes deterministic matching and browser review from evidenced human approval", () => {
+  it("uses one concise review notice and puts theme controls after the series links", () => {
     const html = renderToStaticMarkup(<RootLayout params={Promise.resolve({})}>page</RootLayout>);
     const doc = new DOMParser().parseFromString(html, "text/html");
-    const scope = doc.querySelector('[aria-label="Review scope"]');
-    expect(scope?.textContent).toContain("A deterministic match does not confirm a person");
-    expect(scope?.textContent).toContain("Browser review labels are not authenticated approval");
-    expect(scope?.textContent).toContain("real agency data and production access remain separate gates");
+    expect(doc.querySelector('[aria-label="Review scope"]')?.textContent?.trim()).toBe("Synthetic demo · human review required");
+    expect(doc.querySelectorAll('[aria-label="Review scope"]')).toHaveLength(1);
+    expect(doc.querySelector(".sidebar-note")).toBeNull();
+    expect(doc.querySelector(".brand-name")?.textContent).toMatch(/^Bob Resolve /);
+    const footer = doc.querySelector(".sidebar-footer")!;
+    expect(footer.querySelector('nav[aria-label="Agency Data Trust Series"]')).not.toBeNull();
+    expect(footer.lastElementChild?.querySelector(".theme-toggle")).not.toBeNull();
+    expect(doc.querySelector('nav[aria-label="Main"] a[href="/workflow"] svg')).not.toBeNull();
   });
 });

@@ -29,8 +29,7 @@ describe("Executive presentation and access", () => {
     expect(doc.querySelector("main")?.getAttribute("tabindex")).toBe("-1");
     expect(doc.querySelector("aside")?.classList).toContain("app-sidebar");
     expect(doc.querySelector("main")?.classList).toContain("app-main");
-    expect(doc.querySelector(".sidebar-note")?.textContent).toBe("Separate synthetic identity evidence. Review decisions require human evidence.");
-    expect(doc.querySelector(".sidebar-note")?.className).not.toMatch(/hidden/);
+    expect(doc.querySelector('[aria-label="Review scope"]')?.textContent).toContain("Synthetic demo · human review required");
   });
 
   it("uses a consistent page hierarchy without dropping provenance", async () => {
@@ -45,7 +44,7 @@ describe("Executive presentation and access", () => {
       const view = render(page);
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
       expect(view.container.querySelector(".page-header .eyebrow")).not.toBeNull();
-      expect(view.container.textContent).toMatch(/synthetic/i);
+      expect(view.container.textContent).not.toMatch(/Synthetic data only; no full MBI/);
       view.unmount();
     }
   });

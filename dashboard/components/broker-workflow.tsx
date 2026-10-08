@@ -52,7 +52,7 @@ export function BrokerWorkflow() {
     const a = document.createElement("a"); a.href = url; a.download = "broker-workflow-draft.json"; a.click(); URL.revokeObjectURL(url);
   }
   return <section className="page-stack broker-workflow">
-    <p>Synthetic data only. Browser-local draft in memory; reload clears it. Nothing is sent to a broker. Reviewer and owner names are unauthenticated declarations.</p>
+    <p>Browser-local draft in memory; reload clears it. Nothing is sent to a broker. Reviewer and owner names are unauthenticated declarations.</p>
     <p>Decisions do not merge people or resolve missing evidence. Accepting a response records an evidence review; identity remains unresolved until a separately verified matching run.</p>
     <p>Export a context with <code>uv run python -m bob_resolve.broker_workflow export --help</code>, then load it below. File hashes establish consistency, not authenticity.</p>
     <label>Load CLI context <input type="file" accept=".json" disabled={!!draft} onChange={e => { void load(e.target.files?.[0], true); e.target.value = ""; }} /></label>

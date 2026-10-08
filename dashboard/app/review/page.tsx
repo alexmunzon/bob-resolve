@@ -5,7 +5,7 @@ import { filterOptions, reviewItems } from "@/lib/review";
 import { parseReviewQuery } from "@/lib/review-query";
 import { loadDemoRun } from "@/lib/run-dir";
 
-export const metadata = { title: "Review queue | bob-resolve" };
+export const metadata = { title: "Review queue | Bob Resolve" };
 
 // Rendered per request because it reads the page and filters from the URL. It only reads the demo run; nothing is written.
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -18,7 +18,7 @@ export default async function ReviewPage({ searchParams }: { searchParams?: Sear
       <PageHeader eyebrow="Bob Resolve / Human review" title="What needs a human, most important first?">
         <p className="page-description">
           {items.length} items, in the engine&apos;s order: high severity first, then the closest calls (the score
-          nearest a cutoff line). Synthetic data only; no full MBI is shown.
+          nearest a cutoff line).
         </p>
       </PageHeader>
       <HowToDecide />
