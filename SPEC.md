@@ -32,7 +32,10 @@ Terms, once:
    come from the most authoritative source: enrollment or carrier data over CRM. Contact fields (address, phone, email)
    come from the most recent record. Nicknames are kept as aliases. If two authoritative sources disagree on birth
    date or MBI, the field is not guessed: the person goes to review with reason `IDENTITY_CONFLICT`.
-5. **Dashboard first screen answers "How many real people are in this book, and how sure are we?"**
+5. **Dashboard first screen prioritizes human identity review and source repair.** Updated 2026-10-08 for v2: lead
+   with unresolved review pairs and unidentifiable rows, then show candidate identity groups. Engine outputs are not
+   human-confirmed identities. Keep synthetic benchmark caveats visible and place detailed measurements, tiers, costs
+   and run time in an expandable section. See `docs/adr/0009-review-first-overview.md`.
 6. **Defaults accepted:** `agency-data-commons` is a public repo; shared code is versioned by git tags with exact pins;
    the intake kit's planted examples move with the generator unchanged; dashboard tokens are copied from the intake kit
    now and extracted later; one changelog fragment per PR under `changelog.d/`; the extraction (commons PR 0a) starts
@@ -127,8 +130,8 @@ moved households, shared household phones and emails, a child on a parent's poli
 
 ## 8. Dashboard pages and the one question each answers
 
-- **Overview:** How many real people are in this book, and how sure are we? (records in, people out, households,
-  merges by tier, review queue size, cost, run time; one screen at 1440 with no scrolling)
+- **Overview:** What needs a human decision or source repair? (unresolved review pairs and source-repair guidance first,
+  then records in, candidate identity groups and households; synthetic benchmark and engine details remain available)
 - **Clusters:** Why did these records become one person? (a household as a small graph, golden record with sources)
 - **Review queue:** What needs a human, most important first? (side by side, evidence, suggestion)
 - **Benchmark:** How good is each approach, and at what cost? (rules, rules plus Jev, rules plus Jev plus LLM)

@@ -92,6 +92,7 @@ button, select, summary, a { -webkit-tap-highlight-color: transparent; }
 .walkthrough-link { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-weight: 550; }
 .walkthrough-link:hover { background: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
 .walkthrough-number { color: inherit; font-size: 11px; font-weight: 600; }
+.overview-counts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .metric-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .kpi-tile { padding: 19px 18px 18px; height: 100%; }
 .kpi-label { text-transform: uppercase; letter-spacing: .065em; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 650; line-height: 1.55; }
@@ -161,6 +162,7 @@ button, select, summary, a { -webkit-tap-highlight-color: transparent; }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 640px) {
+  .overview-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .app-main { padding: 30px 24px 56px; }
   .cluster-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
