@@ -8,7 +8,7 @@ The V2 overview repeated its unresolved workload in three panels and repeated sy
 
 ## Decision
 
-Use one shared, visible synthetic-demo and human-review notice. Keep the read-only restriction beside the review action, candidate-identity qualifications beside grouped records, and browser-local, unauthenticated workflow warnings beside the workflow. Show unresolved pairs once in the default overview; retain severity, suggestions and the independently recorded review status in a native disclosure within that summary. Preserve differences and missing values in recorded status rather than deriving replacements from the queue count.
+Use one shared, visible synthetic-demo and human-review notice. Keep the read-only restriction beside the review action, candidate-identity qualifications beside grouped records, and browser-local, unauthenticated workflow warnings beside the workflow. Show unresolved pairs once in the default overview; retain severity, suggestions and the independently recorded review status in a native disclosure within that summary. Preserve differences and missing values in recorded status rather than deriving replacements from the queue count. Keep the browser-label caveat inside the recorded-status panel: unauthenticated browser declarations do not validate resolution evidence or establish approval. Scorecard resolution counts and their interpretation remain unchanged.
 
 Move the identifier-masking explanation and demo's non-held-out limitations into the existing benchmark disclosure alongside its measurements. This supersedes ADR 0009's requirement to keep those technical limitations expanded on the default overview; measurements and their caveats appear together. The Benchmark page retains its run-specific caveats.
 

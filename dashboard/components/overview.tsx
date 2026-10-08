@@ -77,7 +77,9 @@ export function Overview({ data: d }: { data: OverviewData }) {
                     ))}
                   </p>
                 </Panel>
-                <Panel heading="h4" title="Recorded review status" rows={d.reviewStatus} />
+                <Panel heading="h4" title="Recorded review status" rows={d.reviewStatus}>
+                  <p className="mt-2 text-xs leading-relaxed muted">Browser review labels are unauthenticated declarations, not validated resolution evidence or approval.</p>
+                </Panel>
               </div>
             </details>
           </div>
@@ -104,7 +106,7 @@ export function Overview({ data: d }: { data: OverviewData }) {
           <div className="space-y-4 pt-2">
             <p className="disclosure-note">These demo fixtures were used while building the rules. They are not held out and do not measure accuracy on real agency files.</p>
             <p className="text-xs leading-relaxed muted">{d.identifierContext}</p>
-            <p className="text-xs leading-relaxed muted">Browser review labels are not authenticated approval; real agency data and production access remain separate gates.</p>
+            <p className="text-xs leading-relaxed muted">Real agency data and production access remain separate gates.</p>
             <p className="text-xs leading-relaxed muted">Run {d.runId}, engine {d.engine}. {count(d.leftSplit)} identities left split, measured on synthetic data.</p>
             <section aria-labelledby="sure-heading" className="space-y-2">
               <h2 id="sure-heading" className="section-heading">How sure are we? Measured on synthetic data</h2>

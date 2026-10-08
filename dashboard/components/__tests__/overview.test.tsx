@@ -37,7 +37,7 @@ describe("Overview", () => {
     expect(caveat).toBeVisible();
     expect(caveat).toHaveTextContent("not held out and do not measure accuracy on real agency files");
     expect(masking).toBeVisible();
-    expect(screen.getByText(/real agency data and production access remain separate gates/)).toBeVisible();
+    expect(screen.getByText(/Real agency data and production access remain separate gates/)).toBeVisible();
   });
 
   it("explains that shared identifiers were used before display masking", async () => {
@@ -158,6 +158,23 @@ describe("Overview", () => {
     expect(status.getByText("Confirmed by a reviewer").nextSibling).toHaveTextContent("0");
     expect(status.getByRole("link", { name: "Awaiting review" })).toHaveAttribute("href", "/review");
     expect(status.getByText("19")).toBeInTheDocument();
+  });
+
+  it("keeps declared-status warnings beside recorded counts without opening benchmark details", async () => {
+    await show();
+    const review = screen.getByText("Review breakdown and recorded status").closest("details")!;
+    const benchmark = screen.getByText("Benchmark and engine details").closest("details")!;
+    expect(review).not.toHaveAttribute("open");
+    expect(benchmark).not.toHaveAttribute("open");
+    expandReview();
+    const status = screen.getByRole("region", { name: "Recorded review status" });
+    const warning = within(status).getByText(/Browser review labels are unauthenticated declarations/);
+    expect(warning).toHaveTextContent("not validated resolution evidence or approval.");
+    expect(warning).toBeVisible();
+    expect(within(status).getByText("Confirmed by a reviewer")).toBeVisible();
+    expect(warning.closest("details")).toBe(review);
+    expect(benchmark).not.toHaveAttribute("open");
+    expect(within(benchmark).queryByText(/Browser review labels/)).toBeNull();
   });
 
   it("keeps the consolidated review disclosure keyboard reachable and repeatable", async () => {
